@@ -4,10 +4,14 @@ export interface InstallCommandOptions {
   check: boolean;
   json: boolean;
   verbose: boolean;
+  claude: boolean;
 }
 
 export async function runInstallCommand(options: InstallCommandOptions): Promise<void> {
-  const result = await runInstall({ check: options.check });
+  const result = await runInstall({
+    check: options.check,
+    instructionsTarget: options.claude ? "claude" : "agents",
+  });
   if (options.json) {
     console.log(JSON.stringify(options.verbose ? result : compactInstallResult(result, options)));
   } else {
@@ -25,6 +29,8 @@ function compactInstallResult(
     ok: result.ok,
     exitCode: result.exitCode,
     check: options.check,
+    instructions_target: result.instructionsTarget,
+    instructions_path: result.instructionsPath,
     change_count: result.changes.length,
     changes: result.changes.map((change) => ({
       path: change.path,

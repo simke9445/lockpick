@@ -137,13 +137,14 @@ test("parse prune dry-run command", () => {
 });
 
 test("parse install check command", () => {
-  const parsed = parseCliArgs(["install", "--check", "--json", "--verbose"]);
+  const parsed = parseCliArgs(["install", "--check", "--claude", "--json", "--verbose"]);
   expect(parsed.command).toEqual({
     kind: "install",
     options: {
       check: true,
       json: true,
       verbose: true,
+      claude: true,
     },
   });
 });
@@ -315,6 +316,9 @@ test("capabilities json is compact and machine-readable", async () => {
   expect(payload.commands?.find((command) => command.name === "install")?.flags).toContain(
     "--verbose",
   );
+  expect(payload.commands?.find((command) => command.name === "install")?.flags).toContain(
+    "--claude",
+  );
   expect(payload.commands?.find((command) => command.name === "prune")?.flags).toContain(
     "--dry-run",
   );
@@ -349,6 +353,8 @@ test("install check json is compact by default with verbose full output", async 
       kind?: unknown;
       ok?: unknown;
       check?: unknown;
+      instructions_target?: unknown;
+      instructions_path?: unknown;
       change_count?: unknown;
       changes?: Array<Record<string, unknown>>;
       recommended_scripts?: unknown;
@@ -357,6 +363,8 @@ test("install check json is compact by default with verbose full output", async 
     expect(payload.kind).toBe("install");
     expect(payload.ok).toBe(false);
     expect(payload.check).toBe(true);
+    expect(payload.instructions_target).toBe("agents");
+    expect(payload.instructions_path).toBe("AGENTS.md");
     expect(payload.change_count).toBe(payload.changes?.length);
     expect(payload.changes?.[0]).toEqual({
       path: ".lockpick/locks",
@@ -375,6 +383,32 @@ test("install check json is compact by default with verbose full output", async 
     expect(verbosePayload.changes).toEqual(
       expect.arrayContaining([expect.objectContaining({ message: "lock directory is required" })]),
     );
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("install claude json targets CLAUDE instructions", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-install-claude-"));
+  try {
+    await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
+    const result = await runCli(["install", "--check", "--claude", "--json"], workspace);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toBe("");
+    const payload = JSON.parse(result.stdout) as {
+      instructions_target?: unknown;
+      instructions_path?: unknown;
+      changes?: Array<Record<string, unknown>>;
+    };
+    expect(payload.instructions_target).toBe("claude");
+    expect(payload.instructions_path).toBe("CLAUDE.md");
+    expect(payload.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "CLAUDE.md", action: "would_create" }),
+      ]),
+    );
+    await expect(readFile(path.join(workspace, "CLAUDE.md"), "utf8")).rejects.toThrow();
+    await expect(readFile(path.join(workspace, "AGENTS.md"), "utf8")).rejects.toThrow();
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

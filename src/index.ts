@@ -10,6 +10,7 @@ export {
   resolveLockpickConfig,
 } from "./config";
 export {
+  type InstallInstructionsTarget,
   type InstallResult,
   lockpickAgentsSnippet,
   renderInstallResult,

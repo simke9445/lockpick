@@ -16,7 +16,10 @@ export interface InstallOptions {
   root?: string;
   cwd?: string;
   check?: boolean;
+  instructionsTarget?: InstallInstructionsTarget;
 }
+
+export type InstallInstructionsTarget = "agents" | "claude";
 
 export type InstallAction =
   | "created"
@@ -37,9 +40,16 @@ export interface InstallResult {
   ok: boolean;
   exitCode: number;
   root: string;
+  instructionsTarget: InstallInstructionsTarget;
+  instructionsPath: string;
   changes: InstallChange[];
   recommendedScripts: Record<string, string>;
 }
+
+const INSTALL_INSTRUCTIONS_PATHS: Record<InstallInstructionsTarget, string> = {
+  agents: "AGENTS.md",
+  claude: "CLAUDE.md",
+};
 
 const RECOMMENDED_PACKAGE_SCRIPTS: Record<string, string> = {
   lockpick: "lockpick",
@@ -50,6 +60,8 @@ const RECOMMENDED_PACKAGE_SCRIPTS: Record<string, string> = {
 export async function runInstall(options: InstallOptions = {}): Promise<InstallResult> {
   const root = path.resolve(options.root ?? (await findHostRoot(options.cwd ?? process.cwd())));
   const check = Boolean(options.check);
+  const instructionsTarget = options.instructionsTarget ?? "agents";
+  const instructionsPath = INSTALL_INSTRUCTIONS_PATHS[instructionsTarget];
   const config = await loadLockpickConfig({ root });
   const changes: InstallChange[] = [];
 
@@ -57,7 +69,7 @@ export async function runInstall(options: InstallOptions = {}): Promise<InstallR
   changes.push(await ensureConfigFile(config, check));
 
   if (config.install.updateAgents) {
-    changes.push(await ensureAgentsInstructions(config, check));
+    changes.push(await ensureAgentsInstructions(config, check, instructionsPath));
   }
   if (config.install.updateGitignore) {
     changes.push(await ensureGitignore(config, check));
@@ -73,6 +85,8 @@ export async function runInstall(options: InstallOptions = {}): Promise<InstallR
     ok: !checkFailed,
     exitCode: checkFailed ? 1 : 0,
     root,
+    instructionsTarget,
+    instructionsPath,
     changes,
     recommendedScripts: RECOMMENDED_PACKAGE_SCRIPTS,
   };
@@ -186,9 +200,10 @@ async function ensureConfigFile(
 async function ensureAgentsInstructions(
   config: ResolvedLockpickConfig,
   check: boolean,
+  instructionsPath: string,
 ): Promise<InstallChange> {
-  const agentsPath = path.join(config.root, "AGENTS.md");
-  const relative = "AGENTS.md";
+  const agentsPath = path.join(config.root, instructionsPath);
+  const relative = instructionsPath;
   const snippet = lockpickAgentsSnippet(config);
   const exists = await pathExists(agentsPath);
   const current = exists ? await readText(agentsPath) : "";

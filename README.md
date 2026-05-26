@@ -17,8 +17,9 @@ lockpick install
 ```
 
 The install command is idempotent. It creates `.lockpick/locks/`, creates a `lockpick.config.ts`
-when one is missing, inserts a marked Lockpick block into `AGENTS.md`, adds `.lockpick/` to
-`.gitignore`, and adds recommended package scripts when a `package.json` exists. Use
+when one is missing, inserts a marked Lockpick block into `AGENTS.md` by default, adds
+`.lockpick/` to `.gitignore`, and adds recommended package scripts when a `package.json` exists.
+Use `lockpick install --claude` to target `CLAUDE.md` instead of `AGENTS.md`. Use
 `lockpick install --check --json` to inspect required changes without writing.
 
 Recommended host scripts:
@@ -50,7 +51,7 @@ lockpick robot-docs guide
 lockpick doctor --json
 lockpick git begin --reason <text> --refresh-lock <lock_id> --ttl-ms <n> --owner-session <id>
 lockpick git end [locks...] --lock <lock_id> --release-lock <lock_id> --owner-session <id>
-lockpick install --check --json --verbose
+lockpick install --check --claude --json --verbose
 ```
 
 Lock commands support `--json` and `--verbose`. Commands that return lock ids also support

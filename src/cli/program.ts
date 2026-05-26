@@ -79,6 +79,7 @@ interface InstallCliOptions {
   check?: boolean;
   json?: boolean;
   verbose?: boolean;
+  claude?: boolean;
 }
 
 export function parseCliArgs(argv: string[]): ParsedCli {
@@ -392,6 +393,7 @@ function addInstallCommand(program: Command, onCommand?: (command: CliCommand) =
     .command("install")
     .description("Install Lockpick support files into the host repository.")
     .option("--check", "Report required changes without writing.")
+    .option("--claude", "Write Lockpick instructions to CLAUDE.md instead of AGENTS.md.")
     .option("--json", "Print machine-readable output.")
     .option("--verbose", "Include full install JSON details.")
     .allowExcessArguments(false)
@@ -403,6 +405,7 @@ function addInstallCommand(program: Command, onCommand?: (command: CliCommand) =
           check: Boolean(options.check),
           json: Boolean(options.json),
           verbose: Boolean(options.verbose),
+          claude: Boolean(options.claude),
         },
       });
     });

@@ -55,6 +55,24 @@ test("install updates existing AGENTS and .gitignore without overwriting unrelat
   });
 });
 
+test("install can target CLAUDE instructions instead of AGENTS", async () => {
+  await withWorkspace(async (workspace) => {
+    await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
+
+    const result = await runInstall({ root: workspace, instructionsTarget: "claude" });
+
+    expect(result.instructionsTarget).toBe("claude");
+    expect(result.instructionsPath).toBe("CLAUDE.md");
+    expect(result.changes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: "CLAUDE.md", action: "created" })]),
+    );
+    await expect(readFile(path.join(workspace, "AGENTS.md"), "utf8")).rejects.toThrow();
+    const claude = await readFile(path.join(workspace, "CLAUDE.md"), "utf8");
+    expect(claude).toContain("Lockpick advisory locks");
+    expect(claude).toContain("<!-- lockpick:start -->");
+  });
+});
+
 test("install preserves existing config and is idempotent", async () => {
   await withWorkspace(async (workspace) => {
     const configText = 'export default { projectName: "Custom", lockRoot: ".custom-locks" };\n';
