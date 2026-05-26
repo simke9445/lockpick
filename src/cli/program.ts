@@ -76,6 +76,7 @@ interface LockGitEndOptions extends LockOutputOptions {
 interface InstallCliOptions {
   check?: boolean;
   json?: boolean;
+  verbose?: boolean;
 }
 
 export function parseCliArgs(argv: string[]): ParsedCli {
@@ -389,6 +390,7 @@ function addInstallCommand(program: Command, onCommand?: (command: CliCommand) =
     .description("Install Lockpick support files into the host repository.")
     .option("--check", "Report required changes without writing.")
     .option("--json", "Print machine-readable output.")
+    .option("--verbose", "Include full install JSON details.")
     .allowExcessArguments(false)
     .action((_options: InstallCliOptions, command: Command) => {
       const options = command.opts<InstallCliOptions>();
@@ -397,6 +399,7 @@ function addInstallCommand(program: Command, onCommand?: (command: CliCommand) =
         options: {
           check: Boolean(options.check),
           json: Boolean(options.json),
+          verbose: Boolean(options.verbose),
         },
       });
     });

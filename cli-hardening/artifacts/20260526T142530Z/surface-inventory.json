@@ -86,18 +86,14 @@
     },
     {
       "name": "install",
-      "commands": ["install", "install --check --json"],
+      "commands": ["install", "install --check --json", "install --check --json --verbose"],
       "files": ["src/install.ts:50", "src/cli/commands/install.ts:8"],
-      "stdout_data_stderr_diagnostics": "stdout summary or full JSON",
-      "json_robot": "full pretty-printed result",
+      "stdout_data_stderr_diagnostics": "stdout summary or compact/full JSON",
+      "json_robot": "compact single-line JSON by default; full result with --verbose",
       "determinism": "change order is fixed by install helper order",
       "exit_contract": "0 applied or clean check, 1 check drift",
-      "agent_ux_score": 6,
-      "risks": [
-        "JSON is not compact",
-        "no --verbose or fields control",
-        "recommended scripts include entries not present in this repo"
-      ]
+      "agent_ux_score": 8,
+      "risks": ["verbose install JSON remains full-size by design"]
     },
     {
       "name": "capabilities",
@@ -136,18 +132,12 @@
   "ranked_candidates": [
     {
       "rank": 1,
-      "candidate": "Add compact install check JSON or field selection",
-      "why": "Reduces token cost for dry-run install drift checks.",
-      "test_need": "Install JSON schema tests and README update."
-    },
-    {
-      "rank": 2,
       "candidate": "Add unknown command nearest-command suggestions",
       "why": "Extends the new error-pedagogy path from flags to command names.",
       "test_need": "Subprocess tests for mistyped commands with exact alternatives."
     },
     {
-      "rank": 3,
+      "rank": 2,
       "candidate": "Add doctor/health checks",
       "why": "Useful after core machine-readable inventory exists; should be scoped to config/lock-dir/install health.",
       "test_need": "Fixture workspaces for healthy, missing config, stale mutex, install drift."

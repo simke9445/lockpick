@@ -49,7 +49,7 @@ lockpick capabilities --json
 lockpick robot-docs guide
 lockpick git begin --reason <text> --refresh-lock <lock_id> --ttl-ms <n> --owner-session <id>
 lockpick git end [locks...] --lock <lock_id> --release-lock <lock_id> --owner-session <id>
-lockpick install --check --json
+lockpick install --check --json --verbose
 ```
 
 Lock commands support `--json` and `--verbose`. Commands that return lock ids also support
@@ -71,6 +71,8 @@ exit-code meanings. Current exit codes are:
 
 Use `lockpick prune --dry-run --json` to inspect reclaimable expired locks before deleting them.
 Use `lockpick robot-docs guide` for a concise in-tool agent workflow handbook.
+Use `lockpick install --check --json` for compact install drift data; add `--verbose` for the full
+install result.
 
 ## Workflow
 

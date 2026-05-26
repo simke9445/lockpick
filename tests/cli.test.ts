@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { helpText, parseCliArgs } from "../src/cli/program";
@@ -13,10 +14,14 @@ interface CliResult {
   code: number | null;
 }
 
-async function runCli(args: string[]): Promise<CliResult> {
-  return execFileAsync(process.execPath, ["run", "src/index.ts", ...args], {
-    cwd: process.cwd(),
-  })
+async function runCli(args: string[], cwd = process.cwd()): Promise<CliResult> {
+  return execFileAsync(
+    process.execPath,
+    ["run", path.join(process.cwd(), "src/index.ts"), ...args],
+    {
+      cwd,
+    },
+  )
     .then(({ stdout, stderr }) => ({ stdout, stderr, code: 0 }))
     .catch((error: unknown) => {
       const failure = error as Partial<CliResult>;
@@ -131,12 +136,13 @@ test("parse prune dry-run command", () => {
 });
 
 test("parse install check command", () => {
-  const parsed = parseCliArgs(["install", "--check", "--json"]);
+  const parsed = parseCliArgs(["install", "--check", "--json", "--verbose"]);
   expect(parsed.command).toEqual({
     kind: "install",
     options: {
       check: true,
       json: true,
+      verbose: true,
     },
   });
 });
@@ -249,6 +255,9 @@ test("capabilities json is compact and machine-readable", async () => {
   expect(payload.commands?.some((command) => command.name === "capabilities")).toBe(true);
   expect(payload.commands?.some((command) => command.name === "robot-docs guide")).toBe(true);
   expect(payload.commands?.find((command) => command.name === "identify")?.id_only).toBe(false);
+  expect(payload.commands?.find((command) => command.name === "install")?.flags).toContain(
+    "--verbose",
+  );
   expect(payload.commands?.find((command) => command.name === "prune")?.flags).toContain(
     "--dry-run",
   );
@@ -267,4 +276,49 @@ test("robot docs guide matches golden output", async () => {
   expect(result.stdout).toBe(
     await readFile(path.join(process.cwd(), "tests/goldens/robot-docs-guide.txt"), "utf8"),
   );
+});
+
+test("install check json is compact by default with verbose full output", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-install-"));
+  try {
+    await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
+    const compact = await runCli(["install", "--check", "--json"], workspace);
+    expect(compact.code).toBe(1);
+    expect(compact.stderr).toBe("");
+    expect(compact.stdout.trim().split("\n")).toHaveLength(1);
+    expect(Buffer.byteLength(compact.stdout, "utf8")).toBeLessThan(900);
+
+    const payload = JSON.parse(compact.stdout) as {
+      kind?: unknown;
+      ok?: unknown;
+      check?: unknown;
+      change_count?: unknown;
+      changes?: Array<Record<string, unknown>>;
+      recommended_scripts?: unknown;
+      root?: unknown;
+    };
+    expect(payload.kind).toBe("install");
+    expect(payload.ok).toBe(false);
+    expect(payload.check).toBe(true);
+    expect(payload.change_count).toBe(payload.changes?.length);
+    expect(payload.changes?.[0]).toEqual({
+      path: ".lockpick/locks",
+      action: "would_create",
+    });
+    expect(payload.recommended_scripts).toEqual([
+      "lockpick",
+      "lockpick:install",
+      "lockpick:status",
+    ]);
+    expect(payload.root).toBeUndefined();
+
+    const verbose = await runCli(["install", "--check", "--json", "--verbose"], workspace);
+    const verbosePayload = JSON.parse(verbose.stdout) as Record<string, unknown>;
+    expect(verbosePayload.root).toBe(await realpath(workspace));
+    expect(verbosePayload.changes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ message: "lock directory is required" })]),
+    );
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
 });

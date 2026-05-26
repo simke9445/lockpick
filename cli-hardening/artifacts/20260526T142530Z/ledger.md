@@ -207,3 +207,13 @@ without changing lock mutation semantics.
   `tests/goldens/robot-docs-guide.txt` and compared byte-for-byte by `tests/cli.test.ts`.
 - Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`, and
   `bun run check`.
+
+### Chunk: compact install JSON
+
+- Status: completed.
+- Contract: `lockpick install --check --json` now emits a compact single-line JSON contract with
+  path/action changes and recommended script names; `--verbose` returns the full install result.
+- Verification skill used: `testing-conformance-harnesses`; focused CLI tests pin compact and
+  verbose install JSON behavior in an isolated workspace.
+- Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`,
+  `bun run check`, and `bun run src/index.ts install --check --json`.
