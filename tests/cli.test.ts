@@ -323,6 +323,11 @@ test("capabilities json is compact and machine-readable", async () => {
     "--dry-run",
   );
   expect(payload.exit_codes).toContainEqual({
+    code: 1,
+    name: "cli_or_check_error",
+    meaning: "CLI parse error, install check drift, or doctor warning/error result.",
+  });
+  expect(payload.exit_codes).toContainEqual({
     code: 3,
     name: "lock_conflict",
     meaning: "Lock conflict or ownership failure.",

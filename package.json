@@ -1,24 +1,23 @@
 {
   "name": "lockpick",
   "version": "0.1.0",
-  "private": true,
+  "license": "MIT",
   "type": "module",
   "packageManager": "bun@1.3.13",
   "description": "Standalone local advisory locking CLI and reusable TypeScript library.",
   "bin": {
     "lockpick": "./bin/lockpick.ts"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "docs/readme-evidence.md",
+    "README.md",
+    "CONTRIBUTING.md",
+    "LICENSE"
+  ],
   "exports": {
     ".": "./src/index.ts"
-  },
-  "workspaces": {
-    "packages": [],
-    "catalog": {
-      "@biomejs/biome": "2.4.15",
-      "@types/bun": "1.3.13",
-      "commander": "14.0.3",
-      "typescript": "6.0.3"
-    }
   },
   "scripts": {
     "build": "bun run typecheck",
@@ -32,12 +31,12 @@
     "check": "bun run test && bun run typecheck && bun run lint"
   },
   "dependencies": {
-    "commander": "catalog:"
+    "commander": "14.0.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:",
-    "@types/bun": "catalog:",
-    "typescript": "catalog:"
+    "@biomejs/biome": "2.4.15",
+    "@types/bun": "1.3.13",
+    "typescript": "6.0.3"
   },
   "engines": {
     "bun": ">=1.2.0"

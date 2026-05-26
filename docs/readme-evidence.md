@@ -26,14 +26,42 @@ No skill was missing or blocked.
 | Fact | Evidence |
 | --- | --- |
 | Package name and version are `lockpick` and `0.1.0` | `package.json:2`, `package.json:3` |
-| Package is private, so README avoids package-manager install commands | `package.json:4` |
-| Runtime is Bun `>=1.2.0` | `package.json:18` |
-| Binary entry is `./bin/lockpick.ts` | `package.json:7` |
-| Package export is `./src/index.ts` | `package.json:10` |
-| Runtime dependency is `commander` | `package.json:15` |
-| Local checks are `bun test`, `tsc --noEmit`, `biome check .` | `package.json:12` to `package.json:14` |
-| License is MIT | `LICENSE:1` |
-| No `.github` workflow files were present | `find .github -maxdepth 3 -type f` returned no files |
+| License is declared as MIT in the package manifest and license file | `package.json:4`, `LICENSE:1` |
+| Runtime is Bun `>=1.2.0` | `package.json:41` to `package.json:43` |
+| Binary entry is `./bin/lockpick.ts` | `package.json:8` to `package.json:10` |
+| Package export is `./src/index.ts` | `package.json:19` to `package.json:21` |
+| Package files list includes CLI, source, README evidence, README, contribution policy, and license | `package.json:11` to `package.json:18` |
+| Runtime dependency is `commander` | `package.json:33` to `package.json:35` |
+| Local checks are `bun test`, `tsc --noEmit`, `biome check .` | `package.json:28` to `package.json:31` |
+| No `.github` workflow files were present | `.github` did not exist when checked; no CI badge is claimed |
+
+## Global CLI Evidence
+
+Commands:
+
+```bash
+bun pm pack --dry-run
+npm pack --dry-run
+PACK_PATH=$(bun pm pack --destination "$(mktemp -d)" --quiet | awk 'NF {line=$0} END {print line}')
+TMP_BUN_HOME=$(mktemp -d)
+BUN_INSTALL="$TMP_BUN_HOME" bun install -g "$PACK_PATH"
+PATH="$TMP_BUN_HOME/bin:$PATH" lockpick --help | head -20
+NPM_PREFIX=$(mktemp -d)
+npm install -g --prefix "$NPM_PREFIX" "$PACK_PATH"
+PATH="$NPM_PREFIX/bin:$PATH" lockpick --help | head -20
+```
+
+Result summary:
+
+- `bun pm pack --dry-run` and `npm pack --dry-run` completed and reported the package tarball
+  contents.
+- The packed tarball installed globally with `bun install -g <tarball>` into an isolated temp Bun
+  home, and `lockpick --help` exited 0.
+- The same tarball installed globally with `npm install -g --prefix <temp> <tarball>`, and
+  `lockpick --help` exited 0.
+- In a temp Git host repo, the tarball-installed global `lockpick` binary completed the README setup
+  and quick-demo flow: `install --check --json`, `install`, `acquire`, `expand`, `refresh`,
+  `git begin`, `status --json`, `git end`, `prune --dry-run --json`, and `doctor --json`.
 
 ## Runtime Command Evidence
 
@@ -56,7 +84,8 @@ Result summary:
   `git begin`, `git end`, `install`, `capabilities`, `robot-docs guide`, `doctor`
 - Defaults: `lockpick.config.ts`, `.lockpick/locks`, `ttl_ms` 600000, `max_ttl_ms`
   1800000, `unknown_liveness_grace_ms` 600000, `git_index_resource` `@git/index`
-- Exit codes: 0 success, 1 parse/check drift, 2 lock usage error, 3 conflict/ownership
+- Exit codes: 0 success, 1 parse/check drift or doctor warning/error result, 2 lock usage error,
+  3 conflict/ownership
 - Env keys: `LOCKPICK_OWNER_SESSION`, `LOCKPICK_SESSION_ID`,
   `LOCKPICK_SUPERVISOR_SESSION_ID`
 
@@ -97,9 +126,9 @@ Command:
 bun run --silent lockpick -- doctor --json | jq .
 ```
 
-In this repository, doctor returned `ok: false` with warnings for missing config and install
-drift, plus ok checks for lock root, active dir, and registry mutex. In the temp installed demo,
-doctor returned `ok: true`.
+In this repository, doctor returned shell exit 1 with `ok: false` and warnings for missing config
+and install drift, plus ok checks for lock root, active dir, and registry mutex. In the temp
+installed demo, doctor returned shell exit 0 with `ok: true`.
 
 Source: `src/cli/doctor.ts:32` to `src/cli/doctor.ts:81`.
 
@@ -168,6 +197,15 @@ the process id. Source: `src/locks/session.ts:42` to `src/locks/session.ts:60`,
 
 ## Test Evidence
 
+Commands run after the README contract update:
+
+| Command | Result |
+| --- | --- |
+| `bun test` | Passed, 39 tests |
+| `bun run typecheck` | Passed, exit 0 |
+| `bun run lint` | Passed, exit 0 |
+| `bun run check` | Passed, exit 0 |
+
 | Area | Tests |
 | --- | --- |
 | CLI help, parser, errors, capabilities, robot docs, install JSON, doctor | `tests/cli.test.ts` |
@@ -180,10 +218,10 @@ supporting context, but runtime commands and current source were used for README
 
 ## Limitations Used In README
 
-- Package is private and pre-release; no package-manager install claims.
+- Package is pre-release.
 - No checked-in CI workflow files; no CI badge.
 - Advisory local coordination only; no networked service or enforcement against non-participants.
 - Generic default liveness is `unknown`; Codex-specific liveness is opt-in config.
 - No compatibility layers, migration paths, deprecated names, or old-schema promises.
 - `lockpick --version` is not implemented; version is exposed through `capabilities --json`.
-- No `CONTRIBUTING.md` or separate contribution policy exists.
+- `CONTRIBUTING.md` exists with local checks, file-locking expectations, and PR guidance.

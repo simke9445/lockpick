@@ -273,7 +273,11 @@ export function lockpickCapabilities(): LockpickCapabilities {
     ],
     exit_codes: [
       { code: 0, name: "success", meaning: "Command completed successfully." },
-      { code: 1, name: "cli_or_check_error", meaning: "CLI parse error or install check drift." },
+      {
+        code: 1,
+        name: "cli_or_check_error",
+        meaning: "CLI parse error, install check drift, or doctor warning/error result.",
+      },
       {
         code: 2,
         name: "lock_usage_error",

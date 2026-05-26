@@ -14,19 +14,40 @@ locks, and serialize `git add` or `git commit` through a synthetic `@git/index` 
 ordinary files under `.lockpick/locks`; there is no daemon, database, hosted service, or
 repository-specific prompt behavior.
 
-Try the current source checkout:
+## Setup And Usage
+
+Lockpick is meant to be installed once as a global CLI, then run as `lockpick` inside the
+repositories you want to coordinate. Bun `>=1.2` must be available at runtime.
 
 ```bash
-bun install --frozen-lockfile
-bun run --silent lockpick -- --help
+bun install -g lockpick
+lockpick --help
 ```
 
-Need the machine-readable contract first?
+If you prefer npm for global packages:
 
 ```bash
-bun run --silent lockpick -- capabilities --json
-bun run --silent lockpick -- robot-docs guide
+npm install -g lockpick
+lockpick --help
 ```
+
+If the command is not found, add your package manager's global binary directory to `PATH`.
+
+Use the global command from any host repository:
+
+```bash
+cd ../your-repo
+lockpick install --check --json || true
+lockpick install
+
+export LOCKPICK_OWNER_SESSION="${USER:-user}-$(date +%s)"
+file_lock="$(lockpick acquire README.md --reason "edit README" --id-only)"
+lockpick status --json
+lockpick release "$file_lock" --id-only
+```
+
+`install` writes the host-repo support files. `acquire`, `status`, and `release` prove the core
+lock loop without depending on the Lockpick checkout path.
 
 Evidence for the claims in this README is kept in
 [docs/readme-evidence.md](docs/readme-evidence.md).
@@ -51,13 +72,11 @@ editor, shell command, or Git operation that ignores the protocol.
 
 ## Quick Demo
 
-This demo runs against a temporary host repository from a Lockpick source checkout. It uses
+This demo runs against a temporary host repository with the global `lockpick` command. It uses
 `LOCKPICK_OWNER_SESSION` because the fallback owner id includes the process id; a stable owner lets
 separate shell commands refresh and release the same lock.
 
 ```bash
-# Run from the Lockpick checkout.
-LOCKPICK="$(pwd)/src/index.ts"
 HOST="$(mktemp -d)"
 cd "$HOST"
 git init -q
@@ -68,19 +87,19 @@ printf '# Demo host repo\n' > AGENTS.md
 printf '{"scripts":{}}\n' > package.json
 
 # Expected to exit 1 when install drift is found; it does not write files.
-bun "$LOCKPICK" install --check --json || true
-bun "$LOCKPICK" install
+lockpick install --check --json || true
+lockpick install
 
-file_lock="$(bun "$LOCKPICK" acquire app.ts --reason "edit app" --id-only)"
-bun "$LOCKPICK" expand --lock "$file_lock" README.md --id-only
-bun "$LOCKPICK" refresh "$file_lock" --id-only
+file_lock="$(lockpick acquire app.ts --reason "edit app" --id-only)"
+lockpick expand --lock "$file_lock" README.md --id-only
+lockpick refresh "$file_lock" --id-only
 
-git_lock="$(bun "$LOCKPICK" git begin --refresh-lock "$file_lock" --reason "commit demo" --id-only)"
-bun "$LOCKPICK" status --json
-bun "$LOCKPICK" git end "$git_lock" --release-lock "$file_lock" --id-only
+git_lock="$(lockpick git begin --refresh-lock "$file_lock" --reason "commit demo" --id-only)"
+lockpick status --json
+lockpick git end "$git_lock" --release-lock "$file_lock" --id-only
 
-bun "$LOCKPICK" prune --dry-run --json
-bun "$LOCKPICK" doctor --json
+lockpick prune --dry-run --json
+lockpick doctor --json
 ```
 
 Expected shape:
@@ -103,35 +122,25 @@ doctor reports ok true after install completes.
 | Hosted lock service | Cross-machine coordination | Requires a service, credentials, network access, and operational ownership |
 | Lockpick | Local agents and humans in one repository worktree | Advisory only; participants must opt in and use the commands |
 
-## Install
+## Install Details
 
-Lockpick is currently source-first. `package.json` has `"private": true`, so this README does not
-document `npm install lockpick`, `bun add lockpick`, or any package-manager install that is not
-available today.
+Lockpick is a Bun/TypeScript CLI. Bun `>=1.2` is required even when the package is installed through
+npm, because the executable uses `#!/usr/bin/env bun`.
 
-### From Source
-
-```bash
-# From an existing Lockpick checkout.
-bun install --frozen-lockfile
-bun run --silent lockpick -- --help
-```
-
-From another repository, run the TypeScript entry point from the checkout:
+### Global Install
 
 ```bash
-# Replace ../lockpick with the path to your Lockpick checkout.
-# The check command exits 1 when install drift is found.
-bun ../lockpick/src/index.ts install --check --json || true
-bun ../lockpick/src/index.ts install
+bun install -g lockpick
+lockpick --help
 ```
-
-After a real binary named `lockpick` is on `PATH`, host repositories can use the shorter form:
 
 ```bash
-lockpick install --check --json || true
-lockpick install
+npm install -g lockpick
+lockpick --help
 ```
+
+Use one global install method, not both. After installation, run `lockpick install` from each host
+repository that should use advisory locking.
 
 ### Host Install Behavior
 
@@ -160,8 +169,7 @@ Recommended host scripts inserted when absent:
 
 ## Quick Start
 
-The examples in this section use `lockpick` for readability. From a source checkout, replace
-`lockpick` with `bun ../lockpick/src/index.ts` or configure `command.prefix`.
+The examples in this section assume the global install from [Setup And Usage](#setup-and-usage).
 
 1. Pick the instruction target.
 
@@ -234,7 +242,7 @@ default TTLs, owner environment variables, and next commands.
 | Code | Name | Meaning |
 | --- | --- | --- |
 | 0 | `success` | Command completed successfully |
-| 1 | `cli_or_check_error` | CLI parse error or install check drift |
+| 1 | `cli_or_check_error` | CLI parse error, install check drift, or `doctor` warning/error result |
 | 2 | `lock_usage_error` | Invalid lock input, missing lock id, or missing lock resource |
 | 3 | `lock_conflict` | Lock conflict or ownership failure |
 
@@ -263,8 +271,8 @@ export default {
     // Command rendered into generated AGENTS.md or CLAUDE.md instructions.
     executable: "lockpick",
 
-    // Use prefix instead when the command should render through a source checkout or script.
-    // prefix: ["bun", "../lockpick/src/index.ts"],
+    // Use prefix instead when the command should render through a project script or wrapper.
+    // prefix: ["env", "LOCKPICK_PROFILE=team"],
 
     // Or render through a package script.
     // packageRunner: "bun",
@@ -319,8 +327,8 @@ loads `lockpick.config.ts` if present. Without a config file, Lockpick uses the 
 
 ## Library API
 
-The package export is defined in `package.json` as `src/index.ts`. Today the package is private, so
-imports assume a workspace, link, or source checkout where `lockpick` resolves.
+The package export is defined in `package.json` as `src/index.ts`. In Bun/TypeScript projects, use
+the package directly:
 
 ```ts
 import {
@@ -418,7 +426,7 @@ or a migration layer for old lock schemas. The lock record schema is current-ver
 
 ## Limitations
 
-- Lockpick is pre-release and the package is private. No package-manager install is documented yet.
+- Lockpick is pre-release, and the CLI requires Bun at runtime.
 - There is no checked-in GitHub Actions workflow, so this README does not show a CI badge.
 - Lockpick coordinates one local worktree through files under `.lockpick/locks`; it is not a
   networked lock server.
@@ -487,7 +495,7 @@ The current tests cover CLI parsing and rendering, file-backed lock semantics, c
 install idempotency, doctor output, capabilities JSON, generated instruction text, and the
 golden-tested robot guide.
 
-No `CONTRIBUTING.md` or separate contribution policy is present in this repository today.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## License
 
