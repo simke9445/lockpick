@@ -16,9 +16,9 @@ deterministic automation, and CLI ergonomics while keeping Lockpick standalone a
 | 3 | `codebase-audit` domain `cli` | completed | CLI audit findings recorded below with severity, root cause, and recommended fix. |
 | 4 | `agent-ergonomics-and-intuitiveness-maximization-for-cli-tools` | completed | Used as scoring lens: output parseability, error pedagogy, intent inference, self-documentation, safety, determinism, composability, regression resistance. |
 | 5 | `world-class-doctor-mode-for-cli-tools` | completed | Applied in scoped read-only mode for `lockpick doctor`; goal/AGENTS override worktree and branch defaults. |
-| 6 | verification skills | pending | Apply when output/parser/contracts need stronger proof. |
-| 7 | `simplify-and-refactor-code-isomorphically`, `ai-slop-cleaner` | pending | Use for scoped cleanup after functional chunks. |
-| 8 | `code-review`, `security-review` | pending | Required before final handoff if dangerous filesystem/subprocess/security-sensitive behavior is touched. |
+| 6 | verification skills | completed | Used `testing-conformance-harnesses` for parser/JSON contracts and `testing-golden-artifacts` for `robot-docs guide`; read `testing-metamorphic` and skipped MR implementation because CLI outputs have explicit deterministic oracles; read `testing-fuzzing` and scoped fuzz target discovery to parser/error surfaces without adding dependencies. |
+| 7 | `simplify-and-refactor-code-isomorphically`, `ai-slop-cleaner` | completed | Used for scoped cleanup after functional chunks, notably deriving typo flag suggestions from the capabilities contract instead of duplicating flag lists. |
+| 8 | `code-review`, `security-review` | completed | Final pass inspected cumulative diffs, filesystem writes, parser/error paths, install/doctor read-only behavior, dependency audit, secret-pattern scan, and whitespace checks. |
 
 ## Baseline
 
@@ -61,11 +61,10 @@ deterministic automation, and CLI ergonomics while keeping Lockpick standalone a
 
 | Risk | Notes |
 | --- | --- |
-| Capabilities missing | Agents must parse help prose to discover commands and flags. |
-| Exit-code docs incomplete | README only says invalid/conflict exits non-zero; concrete code meanings are implicit. |
-| Output contract not golden-tested | Compact JSON exists, but help and error outputs are not snapshot/golden protected. |
+| No long-running fuzz campaign | Parser/error surfaces are covered by deterministic conformance tests and direct probes; no persistent coverage-guided fuzz harness was added. |
+| Error/help goldens are focused | `robot-docs guide` is golden-tested; other parser/error surfaces use explicit subprocess assertions rather than broad help snapshots. |
 | `--id-only` residual scope | `identify --id-only` now fails with a replacement command and `prune --id-only` returns pruned ids; `status --id-only` remains accepted for active lock ids. |
-| No doctor surface | There is no health command for config/install/lock-state diagnosis. |
+| Doctor is read-only | `doctor` reports config/install/lock-state health but intentionally does not repair files or mutate registry state. |
 
 ## CLI Audit Findings
 
@@ -251,3 +250,15 @@ without changing lock mutation semantics.
 - Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`,
   `bun run check`, `bun audit`, `git diff --check origin/main..HEAD`, and a secret-pattern scan
   excluding `node_modules`, `.git`, and `bun.lock`.
+
+### Final code and security review
+
+- Status: completed.
+- Code review result: fixed the only review finding found in the final pass: JSON error output
+  remained pretty-printed and nested command typo suggestions did not emit Lockpick's exact
+  correction contract.
+- Security review result: no credential material or dependency vulnerabilities found. New doctor
+  checks are read-only; install `--check` remains dry-run; command suggestions are rendered strings
+  only and are not executed.
+- Clean state: after final commits, `git status --short` was clean and
+  `bun run --silent lockpick -- status --verbose` reported no active locks.
