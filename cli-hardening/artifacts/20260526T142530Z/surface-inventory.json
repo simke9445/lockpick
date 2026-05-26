@@ -1,0 +1,131 @@
+{
+  "run_id": "20260526T142530Z",
+  "baseline": {
+    "bun_test": "pass: 21 tests",
+    "typecheck": "pass",
+    "lint": "pass",
+    "lock_status_verbose": "pass: no active locks"
+  },
+  "surfaces": [
+    {
+      "name": "root_help",
+      "commands": ["lockpick --help"],
+      "files": ["src/cli/program.ts:102"],
+      "stdout_data_stderr_diagnostics": "stdout prose; stderr unused",
+      "json_robot": "none",
+      "determinism": "commander generated; command order is source order",
+      "exit_contract": "0 for help",
+      "agent_ux_score": 6,
+      "risks": ["no machine-readable command inventory", "exit codes not documented in help"]
+    },
+    {
+      "name": "parse_errors",
+      "commands": ["lockpick nope --json", "lockpick acquire --ttl-ms 10abc --json"],
+      "files": ["src/cli/index.ts:18", "src/cli/program.ts:396"],
+      "stdout_data_stderr_diagnostics": "json errors go to stdout when --json is present; text errors go to stderr",
+      "json_robot": "ok=false, code, message, optional details",
+      "determinism": "stable commander codes; message text from commander",
+      "exit_contract": "1 for parse errors",
+      "agent_ux_score": 7,
+      "risks": ["error JSON is pretty-printed and larger than lock JSON", "suggested replacement command is absent"]
+    },
+    {
+      "name": "lock_mutations",
+      "commands": ["acquire", "expand", "refresh", "release", "git begin", "git end", "prune"],
+      "files": ["src/locks/registry.ts:109", "src/locks/registry.ts:148", "src/locks/registry.ts:191", "src/locks/registry.ts:221", "src/locks/registry.ts:254"],
+      "stdout_data_stderr_diagnostics": "success text/json on stdout; nonzero result text/json also on stdout",
+      "json_robot": "compact by default, full with --verbose",
+      "determinism": "active locks sorted by lock id; generated lock ids include time/random suffix",
+      "exit_contract": "0 success, 2 invalid input, 3 conflict or ownership failure",
+      "agent_ux_score": 7,
+      "risks": ["--id-only is exposed for commands that may have no affected lock ids", "dangerous mutation plan/dry-run is limited to install only"]
+    },
+    {
+      "name": "lock_reads",
+      "commands": ["status", "identify"],
+      "files": ["src/locks/registry.ts:96", "src/locks/registry.ts:236", "src/locks/commands.ts:156"],
+      "stdout_data_stderr_diagnostics": "stdout data only",
+      "json_robot": "compact JSON by default",
+      "determinism": "status lock ids sorted; identify fallback includes host/pid",
+      "exit_contract": "0 success",
+      "agent_ux_score": 8,
+      "risks": ["status read path creates the active lock directory if missing", "identify fallback session id is process-specific"]
+    },
+    {
+      "name": "conflicts",
+      "commands": ["acquire conflicting resources", "expand conflicting resources"],
+      "files": ["src/locks/commands.ts:268", "src/locks/registry.ts:455"],
+      "stdout_data_stderr_diagnostics": "conflict details on stdout through normal result renderer",
+      "json_robot": "compact conflict JSON includes suggested_action and conflicting resources",
+      "determinism": "conflicts follow sorted active locks",
+      "exit_contract": "3",
+      "agent_ux_score": 8,
+      "risks": ["only first conflict is rendered in text mode", "retry command is prose, not structured next_command"]
+    },
+    {
+      "name": "install",
+      "commands": ["install", "install --check --json"],
+      "files": ["src/install.ts:50", "src/cli/commands/install.ts:8"],
+      "stdout_data_stderr_diagnostics": "stdout summary or full JSON",
+      "json_robot": "full pretty-printed result",
+      "determinism": "change order is fixed by install helper order",
+      "exit_contract": "0 applied or clean check, 1 check drift",
+      "agent_ux_score": 6,
+      "risks": ["JSON is not compact", "no --verbose or fields control", "recommended scripts include entries not present in this repo"]
+    },
+    {
+      "name": "capabilities",
+      "commands": [],
+      "files": [],
+      "stdout_data_stderr_diagnostics": "missing",
+      "json_robot": "missing",
+      "determinism": "not applicable",
+      "exit_contract": "not documented",
+      "agent_ux_score": 2,
+      "risks": ["agents must scrape help text to discover commands and flags"]
+    },
+    {
+      "name": "doctor_health",
+      "commands": [],
+      "files": [],
+      "stdout_data_stderr_diagnostics": "missing",
+      "json_robot": "missing",
+      "determinism": "not applicable",
+      "exit_contract": "not documented",
+      "agent_ux_score": 2,
+      "risks": ["no single command validates config, lock dirs, mutex state, and install drift"]
+    }
+  ],
+  "ranked_candidates": [
+    {
+      "rank": 1,
+      "candidate": "Add lockpick capabilities --json",
+      "why": "High discoverability/token-efficiency gain without touching lock mutation semantics.",
+      "test_need": "CLI parser tests, subprocess JSON contract test, README docs."
+    },
+    {
+      "rank": 2,
+      "candidate": "Document exit-code contract in README/help or capabilities output",
+      "why": "Agents need deterministic recovery behavior.",
+      "test_need": "Golden or conformance assertion over capabilities/README snippets."
+    },
+    {
+      "rank": 3,
+      "candidate": "Tighten --id-only exposure or behavior",
+      "why": "Current global exposure can produce empty successful output for surfaces without lock ids.",
+      "test_need": "Parser/CLI tests for unsupported flag rejection or explicit output."
+    },
+    {
+      "rank": 4,
+      "candidate": "Make install JSON compact by default with optional verbose/full output",
+      "why": "Dry-run JSON is useful but token-heavy.",
+      "test_need": "Install JSON schema tests and README update."
+    },
+    {
+      "rank": 5,
+      "candidate": "Add doctor/health checks",
+      "why": "Useful after core machine-readable inventory exists; should be scoped to config/lock-dir/install health.",
+      "test_need": "Fixture workspaces for healthy, missing config, stale mutex, install drift."
+    }
+  ]
+}
