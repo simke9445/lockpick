@@ -301,7 +301,7 @@ test("capabilities json is compact and machine-readable", async () => {
 
   expect(payload.kind).toBe("capabilities");
   expect(payload.schema_version).toBe(1);
-  expect(payload.version).toBe("0.1.0");
+  expect(payload.version).toBe("0.1.1");
   const acquire = payload.commands?.find((command) => command.name === "acquire");
   expect(acquire).toMatchObject({
     mutates: true,

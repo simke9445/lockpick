@@ -1,6 +1,6 @@
 {
   "name": "@simke9445/lockpick",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Standalone local advisory locking CLI and reusable TypeScript library.",
   "license": "MIT",
   "author": "Djordje Simovic",
@@ -26,7 +26,7 @@
     "access": "public"
   },
   "bin": {
-    "lockpick": "./bin/lockpick.ts"
+    "lockpick": "bin/lockpick.ts"
   },
   "files": [
     "bin/",

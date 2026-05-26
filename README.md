@@ -2,7 +2,7 @@
 
 Local advisory locks for multi-agent coding in one Git worktree.
 
-![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-blue)
+![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-blue)
 ![Runtime Bun >= 1.2](https://img.shields.io/badge/runtime-Bun%20%3E%3D%201.2-black)
 ![Language TypeScript](https://img.shields.io/badge/language-TypeScript-3178c6)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
