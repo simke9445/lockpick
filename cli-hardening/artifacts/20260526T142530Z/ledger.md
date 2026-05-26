@@ -239,3 +239,15 @@ without changing lock mutation semantics.
 - Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`,
   `bun run check`, `bun run src/index.ts doctor --json`, and
   `bun run src/index.ts capabilities --json | jq '.commands[] | select(.name=="doctor")'`.
+
+### Chunk: compact and nested CLI error contract
+
+- Status: completed.
+- Contract: JSON parse/runtime errors now emit compact single-line payloads. Unknown command
+  suggestions now use the capabilities command tree for nested commands such as `git begin` and
+  `robot-docs guide`, producing exact `next:` commands and JSON `details.suggestion` objects.
+- Review basis: found during the final `code-review`/`security-review` pass; the previous contract
+  still pretty-printed JSON errors and only generated Lockpick suggestions for top-level commands.
+- Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`,
+  `bun run check`, `bun audit`, `git diff --check origin/main..HEAD`, and a secret-pattern scan
+  excluding `node_modules`, `.git`, and `bun.lock`.

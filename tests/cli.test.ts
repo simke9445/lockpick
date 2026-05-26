@@ -186,6 +186,7 @@ test("json parse errors are machine-readable", async () => {
   const result = await runCli(["acquire", "src/index.ts", "--ttl-ms", "10abc", "--json"]);
   expect(result.code).not.toBe(0);
   expect(result.stderr).toBe("");
+  expect(result.stdout.trim().split("\n")).toHaveLength(1);
   const payload = JSON.parse(result.stdout) as Record<string, unknown>;
   expect(payload.ok).toBe(false);
   expect(payload.code).toBe("commander.invalidArgument");
@@ -218,12 +219,21 @@ test("unknown flag json errors include suggestion details", async () => {
   });
 });
 
-test("unknown command text errors suggest an exact corrected command", async () => {
+test("unknown command json errors suggest an exact corrected command", async () => {
   const result = await runCli(["stats", "--json"]);
   expect(result.code).toBe(1);
-  expect(result.stdout).toContain('"code": "commander.unknownCommand"');
-  expect(result.stdout).toContain('"command": "lockpick status --json"');
   expect(result.stderr).toBe("");
+  expect(result.stdout.trim().split("\n")).toHaveLength(1);
+  const payload = JSON.parse(result.stdout) as {
+    code?: unknown;
+    details?: { suggestion?: Record<string, unknown> };
+  };
+  expect(payload.code).toBe("commander.unknownCommand");
+  expect(payload.details?.suggestion).toEqual({
+    replace: "stats",
+    with: "status",
+    command: "lockpick status --json",
+  });
 });
 
 test("unknown command plain errors suggest an exact corrected command", async () => {
@@ -232,6 +242,25 @@ test("unknown command plain errors suggest an exact corrected command", async ()
   expect(result.stdout).toBe("");
   expect(result.stderr).toContain("unknown command 'capabilties'");
   expect(result.stderr).toContain("next: lockpick capabilities");
+});
+
+test("nested unknown command errors suggest exact corrected commands", async () => {
+  const json = await runCli(["git", "begn", "--reason", "commit", "--json"]);
+  expect(json.code).toBe(1);
+  expect(json.stderr).toBe("");
+  const payload = JSON.parse(json.stdout) as {
+    details?: { suggestion?: Record<string, unknown> };
+  };
+  expect(payload.details?.suggestion).toEqual({
+    replace: "begn",
+    with: "begin",
+    command: "lockpick git begin --reason commit --json",
+  });
+
+  const text = await runCli(["robot-docs", "gudie"]);
+  expect(text.code).toBe(1);
+  expect(text.stdout).toBe("");
+  expect(text.stderr).toContain("next: lockpick robot-docs guide");
 });
 
 test("identify rejects id-only with a precise replacement command", async () => {

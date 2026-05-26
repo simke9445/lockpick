@@ -44,7 +44,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     const suggestion = cliErrorSuggestion(error, message, argv);
     const exitCode = lockExitCode(error) ?? 1;
     if (argv.includes("--json")) {
-      console.log(JSON.stringify(cliErrorPayload(error, message, suggestion), null, 2));
+      console.log(JSON.stringify(cliErrorPayload(error, message, suggestion)));
     } else {
       console.error(`lockpick error: ${renderCliErrorMessage(message, suggestion)}`);
     }
@@ -123,7 +123,7 @@ function flagSuggestion(message: string, argv: string[]): CliErrorSuggestion | n
 function commandSuggestion(message: string, argv: string[]): CliErrorSuggestion | null {
   const unknown = extractQuotedValue(message, "unknown command");
   if (!unknown) return null;
-  const replacement = closestKnownCommand(unknown);
+  const replacement = closestKnownCommand(unknown, argv);
   if (!replacement) return null;
   return {
     replace: unknown,
@@ -145,8 +145,8 @@ function closestKnownFlag(value: string): string | null {
   return best && best.distance <= 2 ? best.flag : null;
 }
 
-function closestKnownCommand(value: string): string | null {
-  const ranked = knownCommands()
+function closestKnownCommand(value: string, argv: string[]): string | null {
+  const ranked = knownCommandsForValue(value, argv)
     .map((command) => ({ command, distance: levenshtein(value, command) }))
     .sort(
       (left, right) => left.distance - right.distance || left.command.localeCompare(right.command),
@@ -161,14 +161,24 @@ function knownFlags(): string[] {
   );
 }
 
-function knownCommands(): string[] {
-  return [
-    ...new Set(
-      lockpickCapabilities()
-        .commands.map((command) => command.name.split(" ")[0])
-        .filter((command): command is string => Boolean(command)),
-    ),
-  ].sort((left, right) => left.localeCompare(right));
+function knownCommandsForValue(value: string, argv: string[]): string[] {
+  const valueIndex = argv.indexOf(value);
+  const prefix = valueIndex > 0 ? argv.slice(0, valueIndex) : [];
+  const commandParts = lockpickCapabilities().commands.map((command) => command.name.split(" "));
+  const prefixMatches = commandParts
+    .filter(
+      (parts) =>
+        prefix.length > 0 &&
+        parts.length > prefix.length &&
+        prefix.every((token, index) => parts[index] === token),
+    )
+    .map((parts) => parts[prefix.length])
+    .filter((command): command is string => Boolean(command));
+  const candidates =
+    prefixMatches.length > 0
+      ? prefixMatches
+      : commandParts.map((parts) => parts[0]).filter((command): command is string => !!command);
+  return [...new Set(candidates)].sort((left, right) => left.localeCompare(right));
 }
 
 function renderCorrectedCommand(argv: string[], unknown: string, replacement: string): string {
