@@ -1,0 +1,33 @@
+{
+  "name": "lockpick",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone local advisory locking CLI and reusable TypeScript library.",
+  "bin": {
+    "lockpick": "./bin/lockpick.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lockpick": "bun run src/index.ts",
+    "start": "bun run src/index.ts",
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "check": "bun test && tsc --noEmit && biome check ."
+  },
+  "dependencies": {
+    "commander": "14.0.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.12",
+    "@types/bun": "latest",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  }
+}

@@ -1,0 +1,11 @@
+.lockpick/
+node_modules/
+dist/
+out/
+.env
+.env.*
+*.log
+logs/
+tmp/
+scratch/
+notes/
