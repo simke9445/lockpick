@@ -188,3 +188,13 @@ without changing lock mutation semantics.
   JSON error behavior.
 - Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`, and
   `bun run check`.
+
+### Cleanup: derive typo flags from capabilities
+
+- Status: completed.
+- Skills used: `simplify-and-refactor-code-isomorphically`, `ai-slop-cleaner`.
+- Isomorphism proof: the known flag set is now derived from the committed capabilities contract
+  instead of a duplicate literal list; typo ranking still uses the same Levenshtein threshold and
+  lexicographic tie-break.
+- Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`, and
+  `bun run check`.

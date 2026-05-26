@@ -79,21 +79,6 @@ interface CliErrorSuggestion {
   command: string;
 }
 
-const KNOWN_FLAGS = [
-  "--check",
-  "--dry-run",
-  "--glob",
-  "--id-only",
-  "--json",
-  "--lock",
-  "--owner-session",
-  "--reason",
-  "--refresh-lock",
-  "--release-lock",
-  "--ttl-ms",
-  "--verbose",
-];
-
 function renderCliErrorMessage(message: string, suggestion: CliErrorSuggestion | null): string {
   if (!suggestion) return message;
   return `${message}\nnext: ${suggestion.command}`;
@@ -122,11 +107,17 @@ function extractUnknownOption(message: string): string | null {
 }
 
 function closestKnownFlag(value: string): string | null {
-  const ranked = KNOWN_FLAGS.map((flag) => ({ flag, distance: levenshtein(value, flag) })).sort(
-    (left, right) => left.distance - right.distance || left.flag.localeCompare(right.flag),
-  );
+  const ranked = knownFlags()
+    .map((flag) => ({ flag, distance: levenshtein(value, flag) }))
+    .sort((left, right) => left.distance - right.distance || left.flag.localeCompare(right.flag));
   const best = ranked[0];
   return best && best.distance <= 2 ? best.flag : null;
+}
+
+function knownFlags(): string[] {
+  return [...new Set(lockpickCapabilities().commands.flatMap((command) => command.flags))].sort(
+    (left, right) => left.localeCompare(right),
+  );
 }
 
 function renderCorrectedCommand(argv: string[], unknown: string, replacement: string): string {
