@@ -32,6 +32,7 @@ test("help lists top-level lock commands", () => {
   expect(help).toContain("refresh");
   expect(help).toContain("git");
   expect(help).toContain("install");
+  expect(help).toContain("capabilities");
 });
 
 test("nested help aliases resolve to subcommand help", () => {
@@ -125,6 +126,21 @@ test("parse install check command", () => {
   });
 });
 
+test("parse capabilities command", () => {
+  expect(parseCliArgs(["capabilities"]).command).toEqual({
+    kind: "capabilities",
+    options: {
+      json: false,
+    },
+  });
+  expect(parseCliArgs(["capabilities", "--json"]).command).toEqual({
+    kind: "capabilities",
+    options: {
+      json: true,
+    },
+  });
+});
+
 test("json parse errors are machine-readable", async () => {
   const result = await runCli(["acquire", "src/index.ts", "--ttl-ms", "10abc", "--json"]);
   expect(result.code).not.toBe(0);
@@ -133,4 +149,45 @@ test("json parse errors are machine-readable", async () => {
   expect(payload.ok).toBe(false);
   expect(payload.code).toBe("commander.invalidArgument");
   expect(payload.message).toEqual(expect.stringContaining("--ttl-ms"));
+});
+
+test("capabilities json is compact and machine-readable", async () => {
+  const result = await runCli(["capabilities", "--json"]);
+  expect(result.code).toBe(0);
+  expect(result.stderr).toBe("");
+  expect(result.stdout.trim().split("\n")).toHaveLength(1);
+  expect(Buffer.byteLength(result.stdout, "utf8")).toBeLessThan(7000);
+
+  const payload = JSON.parse(result.stdout) as {
+    kind?: unknown;
+    schema_version?: unknown;
+    version?: unknown;
+    commands?: Array<{
+      name?: unknown;
+      mutates?: unknown;
+      json?: unknown;
+      flags?: unknown;
+      exit_codes?: unknown;
+    }>;
+    exit_codes?: Array<{ code?: unknown; name?: unknown; meaning?: unknown }>;
+    env?: Array<{ name?: unknown }>;
+  };
+
+  expect(payload.kind).toBe("capabilities");
+  expect(payload.schema_version).toBe(1);
+  expect(payload.version).toBe("0.1.0");
+  const acquire = payload.commands?.find((command) => command.name === "acquire");
+  expect(acquire).toMatchObject({
+    mutates: true,
+    json: true,
+  });
+  expect(acquire?.flags).toContain("--reason");
+  expect(acquire?.exit_codes).toContain(3);
+  expect(payload.commands?.some((command) => command.name === "capabilities")).toBe(true);
+  expect(payload.exit_codes).toContainEqual({
+    code: 3,
+    name: "lock_conflict",
+    meaning: "Lock conflict or ownership failure.",
+  });
+  expect(payload.env?.map((entry) => entry.name)).toContain("LOCKPICK_OWNER_SESSION");
 });

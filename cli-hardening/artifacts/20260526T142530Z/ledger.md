@@ -144,3 +144,16 @@ Scores are 0-1000 estimates grounded in source lines and transcripts above.
 Next implementation chunk selected from the scorecard: add `capabilities --json` first because it
 raises self-documentation, output parseability, exit-code discoverability, and token efficiency
 without changing lock mutation semantics.
+
+## Implementation Log
+
+### Chunk: `capabilities --json`
+
+- Status: completed.
+- Contract: add `lockpick capabilities --json` as a compact machine-readable CLI contract with
+  version, schema version, command inventory, flags, mutation/read-only status, JSON support,
+  exit-code dictionary, env vars, defaults, and copy-pasteable next commands.
+- Verification skill used: `testing-conformance-harnesses`; requirements extracted into focused
+  parser/subprocess tests in `tests/cli.test.ts`.
+- Verification passed: `bun test tests/cli.test.ts`, `bun test`, `bun run typecheck`,
+  `bun run lint`, `bun run check`, and `bun run src/index.ts capabilities --json`.

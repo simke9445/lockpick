@@ -27,29 +27,48 @@
       "determinism": "stable commander codes; message text from commander",
       "exit_contract": "1 for parse errors",
       "agent_ux_score": 7,
-      "risks": ["error JSON is pretty-printed and larger than lock JSON", "suggested replacement command is absent"]
+      "risks": [
+        "error JSON is pretty-printed and larger than lock JSON",
+        "suggested replacement command is absent"
+      ]
     },
     {
       "name": "lock_mutations",
       "commands": ["acquire", "expand", "refresh", "release", "git begin", "git end", "prune"],
-      "files": ["src/locks/registry.ts:109", "src/locks/registry.ts:148", "src/locks/registry.ts:191", "src/locks/registry.ts:221", "src/locks/registry.ts:254"],
+      "files": [
+        "src/locks/registry.ts:109",
+        "src/locks/registry.ts:148",
+        "src/locks/registry.ts:191",
+        "src/locks/registry.ts:221",
+        "src/locks/registry.ts:254"
+      ],
       "stdout_data_stderr_diagnostics": "success text/json on stdout; nonzero result text/json also on stdout",
       "json_robot": "compact by default, full with --verbose",
       "determinism": "active locks sorted by lock id; generated lock ids include time/random suffix",
       "exit_contract": "0 success, 2 invalid input, 3 conflict or ownership failure",
       "agent_ux_score": 7,
-      "risks": ["--id-only is exposed for commands that may have no affected lock ids", "dangerous mutation plan/dry-run is limited to install only"]
+      "risks": [
+        "--id-only is exposed for commands that may have no affected lock ids",
+        "dangerous mutation plan/dry-run is limited to install only"
+      ]
     },
     {
       "name": "lock_reads",
       "commands": ["status", "identify"],
-      "files": ["src/locks/registry.ts:96", "src/locks/registry.ts:236", "src/locks/commands.ts:156"],
+      "files": [
+        "src/locks/registry.ts:96",
+        "src/locks/registry.ts:236",
+        "src/locks/commands.ts:156"
+      ],
       "stdout_data_stderr_diagnostics": "stdout data only",
       "json_robot": "compact JSON by default",
       "determinism": "status lock ids sorted; identify fallback includes host/pid",
       "exit_contract": "0 success",
       "agent_ux_score": 8,
-      "risks": ["status read path creates the active lock directory if missing", "identify fallback session id is process-specific"]
+      "risks": [
+        "status read path creates the active lock directory if missing",
+        "identify fallback session id is process-specific"
+      ]
     },
     {
       "name": "conflicts",
@@ -60,7 +79,10 @@
       "determinism": "conflicts follow sorted active locks",
       "exit_contract": "3",
       "agent_ux_score": 8,
-      "risks": ["only first conflict is rendered in text mode", "retry command is prose, not structured next_command"]
+      "risks": [
+        "only first conflict is rendered in text mode",
+        "retry command is prose, not structured next_command"
+      ]
     },
     {
       "name": "install",
@@ -71,7 +93,11 @@
       "determinism": "change order is fixed by install helper order",
       "exit_contract": "0 applied or clean check, 1 check drift",
       "agent_ux_score": 6,
-      "risks": ["JSON is not compact", "no --verbose or fields control", "recommended scripts include entries not present in this repo"]
+      "risks": [
+        "JSON is not compact",
+        "no --verbose or fields control",
+        "recommended scripts include entries not present in this repo"
+      ]
     },
     {
       "name": "capabilities",

@@ -1,10 +1,12 @@
 import { Command, CommanderError, InvalidArgumentError, type OutputConfiguration } from "commander";
 import type { LockCommand } from "../locks/types";
+import type { CapabilitiesCommandOptions } from "./capabilities";
 import type { InstallCommandOptions } from "./commands/install";
 
 export type CliCommand =
   | { kind: "lock"; command: LockCommand }
-  | { kind: "install"; options: InstallCommandOptions };
+  | { kind: "install"; options: InstallCommandOptions }
+  | { kind: "capabilities"; options: CapabilitiesCommandOptions };
 
 export interface ParsedCli {
   help: boolean;
@@ -114,6 +116,7 @@ function createProgram(onCommand?: (command: CliCommand) => void): Command {
 
   addLockCommands(program, onCommand);
   addInstallCommand(program, onCommand);
+  addCapabilitiesCommand(program, onCommand);
   return program;
 }
 
@@ -373,6 +376,23 @@ function addInstallCommand(program: Command, onCommand?: (command: CliCommand) =
         kind: "install",
         options: {
           check: Boolean(options.check),
+          json: Boolean(options.json),
+        },
+      });
+    });
+}
+
+function addCapabilitiesCommand(program: Command, onCommand?: (command: CliCommand) => void): void {
+  program
+    .command("capabilities")
+    .description("Print the machine-readable CLI contract.")
+    .option("--json", "Print machine-readable output.")
+    .allowExcessArguments(false)
+    .action((_options: CapabilitiesCommandOptions, command: Command) => {
+      const options = command.opts<CapabilitiesCommandOptions>();
+      onCommand?.({
+        kind: "capabilities",
+        options: {
           json: Boolean(options.json),
         },
       });

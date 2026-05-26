@@ -1,3 +1,4 @@
+import { lockpickCapabilities, renderCapabilitiesText } from "./capabilities";
 import { runInstallCommand } from "./commands/install";
 import { lockExitCode, runLockCommand } from "./commands/lock";
 import { helpText, parseCliArgs } from "./program";
@@ -16,6 +17,13 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         return;
       case "install":
         await runInstallCommand(parsed.command.options);
+        return;
+      case "capabilities":
+        if (parsed.command.options.json) {
+          console.log(JSON.stringify(lockpickCapabilities()));
+        } else {
+          console.log(renderCapabilitiesText());
+        }
         return;
     }
   } catch (error) {

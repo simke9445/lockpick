@@ -45,6 +45,7 @@ lockpick release [lock_ids...] --lock <lock_id> --owner-session <id>
 lockpick status [paths...] --glob <pattern>
 lockpick prune
 lockpick identify --owner-session <id>
+lockpick capabilities --json
 lockpick git begin --reason <text> --refresh-lock <lock_id> --ttl-ms <n> --owner-session <id>
 lockpick git end [locks...] --lock <lock_id> --release-lock <lock_id> --owner-session <id>
 lockpick install --check --json
@@ -53,6 +54,17 @@ lockpick install --check --json
 Lock commands support `--id-only`, `--json`, and `--verbose`. Success exits `0`. Invalid arguments,
 missing locks, ownership failures, and conflicts exit non-zero. When `--json` is present, parse and
 runtime errors use `{ "ok": false, "code": "...", "message": "..." }` where practical.
+
+Use `lockpick capabilities --json` for the compact machine-readable CLI contract, including command
+flags, mutation/read-only status, JSON support, defaults, environment variables, next commands, and
+exit-code meanings. Current exit codes are:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success. |
+| 1 | CLI parse error or install check drift. |
+| 2 | Invalid lock input, missing lock id, or missing lock resource. |
+| 3 | Lock conflict or ownership failure. |
 
 ## Workflow
 
