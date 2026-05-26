@@ -163,6 +163,32 @@ test("json parse errors are machine-readable", async () => {
   expect(payload.message).toEqual(expect.stringContaining("--ttl-ms"));
 });
 
+test("unknown flag text errors suggest an exact corrected command", async () => {
+  const result = await runCli(["status", "--jason"]);
+  expect(result.code).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("unknown option '--jason'");
+  expect(result.stderr).toContain("next: lockpick status --json");
+});
+
+test("unknown flag json errors include suggestion details", async () => {
+  const result = await runCli(["status", "--jason", "--json"]);
+  expect(result.code).toBe(1);
+  expect(result.stderr).toBe("");
+  const payload = JSON.parse(result.stdout) as {
+    ok?: unknown;
+    code?: unknown;
+    details?: { suggestion?: Record<string, unknown> };
+  };
+  expect(payload.ok).toBe(false);
+  expect(payload.code).toBe("commander.unknownOption");
+  expect(payload.details?.suggestion).toEqual({
+    replace: "--jason",
+    with: "--json",
+    command: "lockpick status --json",
+  });
+});
+
 test("identify rejects id-only with a precise replacement command", async () => {
   const result = await runCli(["identify", "--id-only", "--json"]);
   expect(result.code).toBe(2);

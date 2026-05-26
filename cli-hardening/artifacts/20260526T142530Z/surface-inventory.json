@@ -29,7 +29,7 @@
       "agent_ux_score": 7,
       "risks": [
         "error JSON is pretty-printed and larger than lock JSON",
-        "suggested replacement command is absent"
+        "unknown command errors still do not include nearest-command suggestions"
       ]
     },
     {
@@ -131,15 +131,15 @@
     },
     {
       "rank": 2,
-      "candidate": "Improve parse error suggestions for common flag typos",
-      "why": "Raises error pedagogy and intent inference for first-try failures.",
-      "test_need": "Subprocess tests for --jsno/--jason and unsupported command hints."
-    },
-    {
-      "rank": 3,
       "candidate": "Add compact install check JSON or field selection",
       "why": "Reduces token cost for dry-run install drift checks.",
       "test_need": "Install JSON schema tests and README update."
+    },
+    {
+      "rank": 3,
+      "candidate": "Add unknown command nearest-command suggestions",
+      "why": "Extends the new error-pedagogy path from flags to command names.",
+      "test_need": "Subprocess tests for mistyped commands with exact alternatives."
     },
     {
       "rank": 4,

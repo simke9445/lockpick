@@ -178,3 +178,13 @@ without changing lock mutation semantics.
   pinned by focused tests.
 - Verification passed: `bun test tests/cli.test.ts tests/locks.test.ts`, `bun run typecheck`,
   `bun run lint`, and `bun run check`.
+
+### Chunk: flag typo suggestions
+
+- Status: completed.
+- Contract: unknown flag errors still fail, but close matches now include an exact corrected
+  `lockpick ...` command in text output and JSON `details.suggestion`.
+- Verification skill used: `testing-conformance-harnesses`; focused subprocess tests pin text and
+  JSON error behavior.
+- Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`, and
+  `bun run check`.

@@ -55,6 +55,7 @@ Lock commands support `--json` and `--verbose`. Commands that return lock ids al
 `--id-only`. Success exits `0`. Invalid arguments, missing locks, ownership failures, and conflicts
 exit non-zero. When `--json` is present, parse and runtime errors use
 `{ "ok": false, "code": "...", "message": "..." }` where practical.
+Unknown flag errors include a corrected `next:` command when Lockpick can infer the intended flag.
 
 Use `lockpick capabilities --json` for the compact machine-readable CLI contract, including command
 flags, mutation/read-only status, JSON support, defaults, environment variables, next commands, and
