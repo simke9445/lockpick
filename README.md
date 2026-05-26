@@ -20,14 +20,14 @@ Lockpick is meant to be installed once as a global CLI, then run as `lockpick` i
 repositories you want to coordinate. Bun `>=1.2` must be available at runtime.
 
 ```bash
-bun install -g lockpick
+bun install -g @simke9445/lockpick
 lockpick --help
 ```
 
 If you prefer npm for global packages:
 
 ```bash
-npm install -g lockpick
+npm install -g @simke9445/lockpick
 lockpick --help
 ```
 
@@ -127,12 +127,12 @@ npm, because the executable uses `#!/usr/bin/env bun`.
 ### Global Install
 
 ```bash
-bun install -g lockpick
+bun install -g @simke9445/lockpick
 lockpick --help
 ```
 
 ```bash
-npm install -g lockpick
+npm install -g @simke9445/lockpick
 lockpick --help
 ```
 
@@ -254,7 +254,7 @@ When `--json` is present, parse and runtime errors use compact payloads shaped l
 Host repositories may add `lockpick.config.ts` at the repository root. Defaults stay generic.
 
 ```ts
-import type { LockpickConfig } from "lockpick";
+import type { LockpickConfig } from "@simke9445/lockpick";
 
 export default {
   // Display name used in generated instruction text. Defaults to the repo directory name.
@@ -334,7 +334,7 @@ import {
   executeLockCommand,
   loadLockpickConfig,
   runInstall,
-} from "lockpick";
+} from "@simke9445/lockpick";
 
 const config = defineLockpickConfig({
   lockRoot: ".lockpick/locks",
