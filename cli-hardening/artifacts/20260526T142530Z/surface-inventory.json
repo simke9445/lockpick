@@ -116,22 +116,15 @@
     },
     {
       "name": "doctor_health",
-      "commands": [],
-      "files": [],
-      "stdout_data_stderr_diagnostics": "missing",
-      "json_robot": "missing",
-      "determinism": "not applicable",
-      "exit_contract": "not documented",
-      "agent_ux_score": 2,
-      "risks": ["no single command validates config, lock dirs, mutex state, and install drift"]
+      "commands": ["doctor --json"],
+      "files": ["src/cli/doctor.ts", "src/cli/program.ts"],
+      "stdout_data_stderr_diagnostics": "compact JSON or concise text on stdout",
+      "json_robot": "kind=schema_version=summary=checks",
+      "determinism": "stable check ids and ordering; mutex age affects only status when mutex exists",
+      "exit_contract": "0 healthy, 1 warnings or errors found",
+      "agent_ux_score": 7,
+      "risks": ["read-only doctor has no self-repair or undo surface by design"]
     }
   ],
-  "ranked_candidates": [
-    {
-      "rank": 1,
-      "candidate": "Add doctor/health checks",
-      "why": "Useful after core machine-readable inventory exists; should be scoped to config/lock-dir/install health.",
-      "test_need": "Fixture workspaces for healthy, missing config, stale mutex, install drift."
-    }
-  ]
+  "ranked_candidates": []
 }

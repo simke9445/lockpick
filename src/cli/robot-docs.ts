@@ -8,6 +8,7 @@ export function renderRobotDocsGuide(): string {
     "",
     "Inspect:",
     "- lockpick capabilities --json",
+    "- lockpick doctor --json",
     "- lockpick status --json",
     "- lockpick identify --json",
     "",

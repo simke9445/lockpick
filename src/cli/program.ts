@@ -2,13 +2,15 @@ import { Command, CommanderError, InvalidArgumentError, type OutputConfiguration
 import { type LockCommand, LockCommandError } from "../locks/types";
 import type { CapabilitiesCommandOptions } from "./capabilities";
 import type { InstallCommandOptions } from "./commands/install";
+import type { DoctorCommandOptions } from "./doctor";
 import type { RobotDocsCommandOptions } from "./robot-docs";
 
 export type CliCommand =
   | { kind: "lock"; command: LockCommand }
   | { kind: "install"; options: InstallCommandOptions }
   | { kind: "capabilities"; options: CapabilitiesCommandOptions }
-  | { kind: "robot-docs"; options: RobotDocsCommandOptions };
+  | { kind: "robot-docs"; options: RobotDocsCommandOptions }
+  | { kind: "doctor"; options: DoctorCommandOptions };
 
 export interface ParsedCli {
   help: boolean;
@@ -125,6 +127,7 @@ function createProgram(onCommand?: (command: CliCommand) => void): Command {
   addInstallCommand(program, onCommand);
   addCapabilitiesCommand(program, onCommand);
   addRobotDocsCommand(program, onCommand);
+  addDoctorCommand(program, onCommand);
   return program;
 }
 
@@ -433,6 +436,25 @@ function addRobotDocsCommand(program: Command, onCommand?: (command: CliCommand)
         kind: "robot-docs",
         options: {
           topic: "guide",
+        },
+      });
+    });
+}
+
+function addDoctorCommand(program: Command, onCommand?: (command: CliCommand) => void): void {
+  program
+    .command("doctor")
+    .description("Run read-only Lockpick health checks.")
+    .option("--json", "Print machine-readable output.")
+    .option("--verbose", "Include full check details.")
+    .allowExcessArguments(false)
+    .action((_options: DoctorCommandOptions, command: Command) => {
+      const options = command.opts<DoctorCommandOptions>();
+      onCommand?.({
+        kind: "doctor",
+        options: {
+          json: Boolean(options.json),
+          verbose: Boolean(options.verbose),
         },
       });
     });

@@ -41,6 +41,7 @@ test("help lists top-level lock commands", () => {
   expect(help).toContain("install");
   expect(help).toContain("capabilities");
   expect(help).toContain("robot-docs");
+  expect(help).toContain("doctor");
 });
 
 test("nested help aliases resolve to subcommand help", () => {
@@ -171,6 +172,16 @@ test("parse robot docs guide command", () => {
   });
 });
 
+test("parse doctor command", () => {
+  expect(parseCliArgs(["doctor", "--json", "--verbose"]).command).toEqual({
+    kind: "doctor",
+    options: {
+      json: true,
+      verbose: true,
+    },
+  });
+});
+
 test("json parse errors are machine-readable", async () => {
   const result = await runCli(["acquire", "src/index.ts", "--ttl-ms", "10abc", "--json"]);
   expect(result.code).not.toBe(0);
@@ -270,6 +281,7 @@ test("capabilities json is compact and machine-readable", async () => {
   expect(acquire?.exit_codes).toContain(3);
   expect(payload.commands?.some((command) => command.name === "capabilities")).toBe(true);
   expect(payload.commands?.some((command) => command.name === "robot-docs guide")).toBe(true);
+  expect(payload.commands?.some((command) => command.name === "doctor")).toBe(true);
   expect(payload.commands?.find((command) => command.name === "identify")?.id_only).toBe(false);
   expect(payload.commands?.find((command) => command.name === "install")?.flags).toContain(
     "--verbose",
@@ -334,6 +346,38 @@ test("install check json is compact by default with verbose full output", async 
     expect(verbosePayload.changes).toEqual(
       expect.arrayContaining([expect.objectContaining({ message: "lock directory is required" })]),
     );
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("doctor json reports read-only health checks", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-doctor-"));
+  try {
+    await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
+    const result = await runCli(["doctor", "--json"], workspace);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.trim().split("\n")).toHaveLength(1);
+    const payload = JSON.parse(result.stdout) as {
+      kind?: unknown;
+      schema_version?: unknown;
+      ok?: unknown;
+      checks?: Array<{ id?: unknown; status?: unknown; next?: unknown; details?: unknown }>;
+    };
+    expect(payload.kind).toBe("doctor");
+    expect(payload.schema_version).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.checks?.some((check) => check.id === "install" && check.status === "warn")).toBe(
+      true,
+    );
+    expect(payload.checks?.every((check) => check.details === undefined)).toBe(true);
+
+    const verbose = await runCli(["doctor", "--json", "--verbose"], workspace);
+    const verbosePayload = JSON.parse(verbose.stdout) as {
+      checks?: Array<{ id?: unknown; details?: unknown }>;
+    };
+    expect(verbosePayload.checks?.find((check) => check.id === "install")?.details).toBeDefined();
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

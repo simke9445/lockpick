@@ -15,7 +15,7 @@ deterministic automation, and CLI ergonomics while keeping Lockpick standalone a
 | 2 | `codebase-report` | completed | Wrote `cli-map.md`, `surface-inventory.json`, `test-map.md`, and this ledger. |
 | 3 | `codebase-audit` domain `cli` | completed | CLI audit findings recorded below with severity, root cause, and recommended fix. |
 | 4 | `agent-ergonomics-and-intuitiveness-maximization-for-cli-tools` | completed | Used as scoring lens: output parseability, error pedagogy, intent inference, self-documentation, safety, determinism, composability, regression resistance. |
-| 5 | `world-class-doctor-mode-for-cli-tools` | pending | Only apply if doctor/health/diagnose surface is selected. |
+| 5 | `world-class-doctor-mode-for-cli-tools` | completed | Applied in scoped read-only mode for `lockpick doctor`; goal/AGENTS override worktree and branch defaults. |
 | 6 | verification skills | pending | Apply when output/parser/contracts need stronger proof. |
 | 7 | `simplify-and-refactor-code-isomorphically`, `ai-slop-cleaner` | pending | Use for scoped cleanup after functional chunks. |
 | 8 | `code-review`, `security-review` | pending | Required before final handoff if dangerous filesystem/subprocess/security-sensitive behavior is touched. |
@@ -227,3 +227,15 @@ without changing lock mutation semantics.
   JSON command suggestion behavior.
 - Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`,
   `bun run check`, `bun run src/index.ts stats --json`, and `bun run src/index.ts capabilties`.
+
+### Chunk: read-only `doctor`
+
+- Status: completed.
+- Contract: add `lockpick doctor --json` as a read-only health surface covering config discovery,
+  lock root, active lock directory, registry mutex state, and install drift. No self-repair or
+  compatibility behavior is added.
+- Doctor skill scope: used `world-class-doctor-mode-for-cli-tools` only for this doctor surface;
+  AGENTS.md and the active goal override the skill's branch/worktree defaults.
+- Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`,
+  `bun run check`, `bun run src/index.ts doctor --json`, and
+  `bun run src/index.ts capabilities --json | jq '.commands[] | select(.name=="doctor")'`.

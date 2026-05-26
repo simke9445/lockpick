@@ -47,6 +47,7 @@ lockpick prune --dry-run
 lockpick identify --owner-session <id>
 lockpick capabilities --json
 lockpick robot-docs guide
+lockpick doctor --json
 lockpick git begin --reason <text> --refresh-lock <lock_id> --ttl-ms <n> --owner-session <id>
 lockpick git end [locks...] --lock <lock_id> --release-lock <lock_id> --owner-session <id>
 lockpick install --check --json --verbose
@@ -74,6 +75,8 @@ Use `lockpick prune --dry-run --json` to inspect reclaimable expired locks befor
 Use `lockpick robot-docs guide` for a concise in-tool agent workflow handbook.
 Use `lockpick install --check --json` for compact install drift data; add `--verbose` for the full
 install result.
+Use `lockpick doctor --json` for read-only health checks covering config, lock directories, mutex
+state, and install drift.
 
 ## Workflow
 

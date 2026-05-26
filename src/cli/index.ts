@@ -1,6 +1,7 @@
 import { lockpickCapabilities, renderCapabilitiesText } from "./capabilities";
 import { runInstallCommand } from "./commands/install";
 import { lockExitCode, runLockCommand } from "./commands/lock";
+import { renderDoctorText, runDoctor } from "./doctor";
 import { helpText, parseCliArgs } from "./program";
 import { renderRobotDocsGuide } from "./robot-docs";
 
@@ -29,6 +30,14 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       case "robot-docs":
         console.log(renderRobotDocsGuide());
         return;
+      case "doctor": {
+        const result = await runDoctor(parsed.command.options);
+        console.log(
+          parsed.command.options.json ? JSON.stringify(result) : renderDoctorText(result),
+        );
+        if (result.exitCode !== 0) process.exitCode = result.exitCode;
+        return;
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
