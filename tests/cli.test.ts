@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { promisify } from "node:util";
 import { helpText, parseCliArgs } from "../src/cli/program";
 
@@ -33,6 +35,7 @@ test("help lists top-level lock commands", () => {
   expect(help).toContain("git");
   expect(help).toContain("install");
   expect(help).toContain("capabilities");
+  expect(help).toContain("robot-docs");
 });
 
 test("nested help aliases resolve to subcommand help", () => {
@@ -153,6 +156,15 @@ test("parse capabilities command", () => {
   });
 });
 
+test("parse robot docs guide command", () => {
+  expect(parseCliArgs(["robot-docs", "guide"]).command).toEqual({
+    kind: "robot-docs",
+    options: {
+      topic: "guide",
+    },
+  });
+});
+
 test("json parse errors are machine-readable", async () => {
   const result = await runCli(["acquire", "src/index.ts", "--ttl-ms", "10abc", "--json"]);
   expect(result.code).not.toBe(0);
@@ -235,6 +247,7 @@ test("capabilities json is compact and machine-readable", async () => {
   expect(acquire?.flags).toContain("--reason");
   expect(acquire?.exit_codes).toContain(3);
   expect(payload.commands?.some((command) => command.name === "capabilities")).toBe(true);
+  expect(payload.commands?.some((command) => command.name === "robot-docs guide")).toBe(true);
   expect(payload.commands?.find((command) => command.name === "identify")?.id_only).toBe(false);
   expect(payload.commands?.find((command) => command.name === "prune")?.flags).toContain(
     "--dry-run",
@@ -245,4 +258,13 @@ test("capabilities json is compact and machine-readable", async () => {
     meaning: "Lock conflict or ownership failure.",
   });
   expect(payload.env?.map((entry) => entry.name)).toContain("LOCKPICK_OWNER_SESSION");
+});
+
+test("robot docs guide matches golden output", async () => {
+  const result = await runCli(["robot-docs", "guide"]);
+  expect(result.code).toBe(0);
+  expect(result.stderr).toBe("");
+  expect(result.stdout).toBe(
+    await readFile(path.join(process.cwd(), "tests/goldens/robot-docs-guide.txt"), "utf8"),
+  );
 });

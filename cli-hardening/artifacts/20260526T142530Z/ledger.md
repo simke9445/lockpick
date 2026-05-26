@@ -198,3 +198,12 @@ without changing lock mutation semantics.
   lexicographic tie-break.
 - Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`, and
   `bun run check`.
+
+### Chunk: `robot-docs guide`
+
+- Status: completed.
+- Contract: add `lockpick robot-docs guide` as a deterministic in-tool agent workflow handbook.
+- Verification skill used: `testing-golden-artifacts`; output is frozen in
+  `tests/goldens/robot-docs-guide.txt` and compared byte-for-byte by `tests/cli.test.ts`.
+- Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`, and
+  `bun run check`.

@@ -2,11 +2,13 @@ import { Command, CommanderError, InvalidArgumentError, type OutputConfiguration
 import { type LockCommand, LockCommandError } from "../locks/types";
 import type { CapabilitiesCommandOptions } from "./capabilities";
 import type { InstallCommandOptions } from "./commands/install";
+import type { RobotDocsCommandOptions } from "./robot-docs";
 
 export type CliCommand =
   | { kind: "lock"; command: LockCommand }
   | { kind: "install"; options: InstallCommandOptions }
-  | { kind: "capabilities"; options: CapabilitiesCommandOptions };
+  | { kind: "capabilities"; options: CapabilitiesCommandOptions }
+  | { kind: "robot-docs"; options: RobotDocsCommandOptions };
 
 export interface ParsedCli {
   help: boolean;
@@ -121,6 +123,7 @@ function createProgram(onCommand?: (command: CliCommand) => void): Command {
   addLockCommands(program, onCommand);
   addInstallCommand(program, onCommand);
   addCapabilitiesCommand(program, onCommand);
+  addRobotDocsCommand(program, onCommand);
   return program;
 }
 
@@ -411,6 +414,22 @@ function addCapabilitiesCommand(program: Command, onCommand?: (command: CliComma
         kind: "capabilities",
         options: {
           json: Boolean(options.json),
+        },
+      });
+    });
+}
+
+function addRobotDocsCommand(program: Command, onCommand?: (command: CliCommand) => void): void {
+  const robotDocs = program.command("robot-docs").description("Print agent-oriented CLI docs.");
+  robotDocs
+    .command("guide")
+    .description("Print the concise agent workflow guide.")
+    .allowExcessArguments(false)
+    .action(() => {
+      onCommand?.({
+        kind: "robot-docs",
+        options: {
+          topic: "guide",
         },
       });
     });

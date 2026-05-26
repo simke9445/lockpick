@@ -46,6 +46,7 @@ lockpick status [paths...] --glob <pattern>
 lockpick prune --dry-run
 lockpick identify --owner-session <id>
 lockpick capabilities --json
+lockpick robot-docs guide
 lockpick git begin --reason <text> --refresh-lock <lock_id> --ttl-ms <n> --owner-session <id>
 lockpick git end [locks...] --lock <lock_id> --release-lock <lock_id> --owner-session <id>
 lockpick install --check --json
@@ -69,6 +70,7 @@ exit-code meanings. Current exit codes are:
 | 3 | Lock conflict or ownership failure. |
 
 Use `lockpick prune --dry-run --json` to inspect reclaimable expired locks before deleting them.
+Use `lockpick robot-docs guide` for a concise in-tool agent workflow handbook.
 
 ## Workflow
 

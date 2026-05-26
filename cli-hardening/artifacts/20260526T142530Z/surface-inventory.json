@@ -108,7 +108,18 @@
       "determinism": "stable source-order command inventory and static defaults",
       "exit_contract": "0 success",
       "agent_ux_score": 8,
-      "risks": ["no robot-docs companion yet"]
+      "risks": ["keep command inventory synchronized with parser changes"]
+    },
+    {
+      "name": "robot_docs",
+      "commands": ["robot-docs guide"],
+      "files": ["src/cli/robot-docs.ts", "tests/goldens/robot-docs-guide.txt"],
+      "stdout_data_stderr_diagnostics": "deterministic agent guide on stdout",
+      "json_robot": "text handbook; exact golden protected",
+      "determinism": "static output byte-for-byte compared to golden",
+      "exit_contract": "0 success",
+      "agent_ux_score": 8,
+      "risks": ["text guide is intentionally concise and not a replacement for capabilities JSON"]
     },
     {
       "name": "doctor_health",
@@ -125,30 +136,18 @@
   "ranked_candidates": [
     {
       "rank": 1,
-      "candidate": "Add robot-docs guide or concise agent handbook",
-      "why": "Complements capabilities with copy-pasteable human-readable agent workflow guidance.",
-      "test_need": "Subprocess/golden assertion for concise command examples."
-    },
-    {
-      "rank": 2,
       "candidate": "Add compact install check JSON or field selection",
       "why": "Reduces token cost for dry-run install drift checks.",
       "test_need": "Install JSON schema tests and README update."
     },
     {
-      "rank": 3,
+      "rank": 2,
       "candidate": "Add unknown command nearest-command suggestions",
       "why": "Extends the new error-pedagogy path from flags to command names.",
       "test_need": "Subprocess tests for mistyped commands with exact alternatives."
     },
     {
-      "rank": 4,
-      "candidate": "Make install JSON compact by default with optional verbose/full output",
-      "why": "Dry-run JSON is useful but token-heavy.",
-      "test_need": "Install JSON schema tests and README update."
-    },
-    {
-      "rank": 5,
+      "rank": 3,
       "candidate": "Add doctor/health checks",
       "why": "Useful after core machine-readable inventory exists; should be scoped to config/lock-dir/install health.",
       "test_need": "Fixture workspaces for healthy, missing config, stale mutex, install drift."

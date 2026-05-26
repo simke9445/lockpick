@@ -2,6 +2,7 @@ import { lockpickCapabilities, renderCapabilitiesText } from "./capabilities";
 import { runInstallCommand } from "./commands/install";
 import { lockExitCode, runLockCommand } from "./commands/lock";
 import { helpText, parseCliArgs } from "./program";
+import { renderRobotDocsGuide } from "./robot-docs";
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   try {
@@ -24,6 +25,9 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         } else {
           console.log(renderCapabilitiesText());
         }
+        return;
+      case "robot-docs":
+        console.log(renderRobotDocsGuide());
         return;
     }
   } catch (error) {
