@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.13",
   "description": "Standalone local advisory locking CLI and reusable TypeScript library.",
   "bin": {
     "lockpick": "./bin/lockpick.ts"
@@ -10,22 +11,33 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "workspaces": {
+    "packages": [],
+    "catalog": {
+      "@biomejs/biome": "2.4.15",
+      "@types/bun": "1.3.13",
+      "commander": "14.0.3",
+      "typescript": "6.0.3"
+    }
+  },
   "scripts": {
+    "build": "bun run typecheck",
     "lockpick": "bun run src/index.ts",
     "start": "bun run src/index.ts",
+    "doctor": "bun run src/index.ts doctor",
     "format": "biome format --write .",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "check": "bun test && tsc --noEmit && biome check ."
+    "check": "bun run test && bun run typecheck && bun run lint"
   },
   "dependencies": {
-    "commander": "14.0.3"
+    "commander": "catalog:"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.12",
-    "@types/bun": "latest",
-    "typescript": "^5.9.0"
+    "@biomejs/biome": "catalog:",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
   },
   "engines": {
     "bun": ">=1.2.0"
