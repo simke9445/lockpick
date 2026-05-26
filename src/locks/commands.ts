@@ -85,7 +85,7 @@ export async function executeLockCommand(
       results.push(await registry.status({ paths: command.paths, globs: command.globs }));
       break;
     case "prune":
-      results.push(await registry.prune());
+      results.push(await registry.prune(command.dryRun));
       break;
     case "identify":
       results.push(registry.identify(command.ownerSession));
@@ -187,6 +187,7 @@ function compactLockJson(result: LockOperationResult): Record<string, unknown> {
       return {
         kind: "pruned",
         exitCode: result.exitCode,
+        dry_run: Boolean(result.dryRun),
         pruned_count: result.pruned?.length ?? 0,
         pruned_lock_ids: (result.pruned ?? []).map((lock) => lock.lockId),
       };
@@ -251,7 +252,9 @@ export function renderLockResult(
     case "status":
       return verbose ? renderStatus(result.locks ?? []) : renderStatusSummary(result.locks ?? []);
     case "pruned":
-      return `pruned locks: ${result.pruned?.length ?? 0}`;
+      return result.dryRun
+        ? `prunable locks: ${result.pruned?.length ?? 0}`
+        : `pruned locks: ${result.pruned?.length ?? 0}`;
     case "identified":
       if (!verbose) return `owner session: ${ownerSessionText(result.owner)}`;
       return [

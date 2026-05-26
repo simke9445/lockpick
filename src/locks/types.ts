@@ -83,6 +83,7 @@ export interface LockOperationResult {
   resources?: LockResource[];
   conflicts?: LockConflict[];
   pruned?: FileLockRecord[];
+  dryRun?: boolean;
   owner?: LockOwner;
 }
 
@@ -125,7 +126,7 @@ export type LockCommand =
       paths: string[];
       globs: string[];
     } & LockCommandOutputOptions)
-  | ({ name: "prune" } & LockCommandOutputOptions)
+  | ({ name: "prune"; dryRun: boolean } & LockCommandOutputOptions)
   | ({ name: "identify"; ownerSession: string | null } & LockCommandOutputOptions)
   | ({
       name: "git-begin";

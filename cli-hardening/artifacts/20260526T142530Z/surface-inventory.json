@@ -49,7 +49,7 @@
       "agent_ux_score": 7,
       "risks": [
         "status --id-only is useful but still broader than the affected-lock-id wording",
-        "dangerous mutation plan/dry-run is limited to install only"
+        "prune now has dry-run; acquire/expand/release/git mutations still execute directly"
       ]
     },
     {
@@ -125,21 +125,21 @@
   "ranked_candidates": [
     {
       "rank": 1,
-      "candidate": "Add prune --dry-run --json plan output",
-      "why": "Improves dangerous-op safety for the remaining lock-deleting command.",
-      "test_need": "Registry/CLI tests for planned pruned ids with no file deletion."
-    },
-    {
-      "rank": 2,
       "candidate": "Add robot-docs guide or concise agent handbook",
       "why": "Complements capabilities with copy-pasteable human-readable agent workflow guidance.",
       "test_need": "Subprocess/golden assertion for concise command examples."
     },
     {
-      "rank": 3,
+      "rank": 2,
       "candidate": "Improve parse error suggestions for common flag typos",
       "why": "Raises error pedagogy and intent inference for first-try failures.",
       "test_need": "Subprocess tests for --jsno/--jason and unsupported command hints."
+    },
+    {
+      "rank": 3,
+      "candidate": "Add compact install check JSON or field selection",
+      "why": "Reduces token cost for dry-run install drift checks.",
+      "test_need": "Install JSON schema tests and README update."
     },
     {
       "rank": 4,

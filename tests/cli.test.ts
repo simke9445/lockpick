@@ -115,6 +115,18 @@ test("parse lock git helpers for combined commit coordination", () => {
   });
 });
 
+test("parse prune dry-run command", () => {
+  const parsed = parseCliArgs(["prune", "--dry-run", "--json"]);
+  expect(parsed.command?.kind).toBe("lock");
+  if (parsed.command?.kind !== "lock") throw new Error("expected lock command");
+  expect(parsed.command.command).toEqual({
+    name: "prune",
+    dryRun: true,
+    json: true,
+    idOnly: false,
+  });
+});
+
 test("parse install check command", () => {
   const parsed = parseCliArgs(["install", "--check", "--json"]);
   expect(parsed.command).toEqual({
@@ -198,6 +210,9 @@ test("capabilities json is compact and machine-readable", async () => {
   expect(acquire?.exit_codes).toContain(3);
   expect(payload.commands?.some((command) => command.name === "capabilities")).toBe(true);
   expect(payload.commands?.find((command) => command.name === "identify")?.id_only).toBe(false);
+  expect(payload.commands?.find((command) => command.name === "prune")?.flags).toContain(
+    "--dry-run",
+  );
   expect(payload.exit_codes).toContainEqual({
     code: 3,
     name: "lock_conflict",

@@ -161,10 +161,11 @@ export function lockpickCapabilities(): LockpickCapabilities {
         json: true,
         id_only: true,
         verbose: true,
-        flags: LOCK_OUTPUT_FLAGS,
+        flags: ["--dry-run", ...LOCK_OUTPUT_FLAGS],
         required: [],
         exit_codes: [0, 2],
         next: ['lockpick acquire <paths...> --reason "<intent>" --id-only'],
+        dry_run: "--dry-run",
       },
       {
         name: "identify",

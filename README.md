@@ -43,7 +43,7 @@ lockpick expand --lock <lock_id> [paths...] --glob <pattern> --ttl-ms <n> --owne
 lockpick refresh [lock_ids...] --lock <lock_id> --ttl-ms <n> --owner-session <id>
 lockpick release [lock_ids...] --lock <lock_id> --owner-session <id>
 lockpick status [paths...] --glob <pattern>
-lockpick prune
+lockpick prune --dry-run
 lockpick identify --owner-session <id>
 lockpick capabilities --json
 lockpick git begin --reason <text> --refresh-lock <lock_id> --ttl-ms <n> --owner-session <id>
@@ -66,6 +66,8 @@ exit-code meanings. Current exit codes are:
 | 1 | CLI parse error or install check drift. |
 | 2 | Invalid lock input, missing lock id, or missing lock resource. |
 | 3 | Lock conflict or ownership failure. |
+
+Use `lockpick prune --dry-run --json` to inspect reclaimable expired locks before deleting them.
 
 ## Workflow
 

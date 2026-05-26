@@ -251,7 +251,7 @@ export class FileLockRegistry {
     };
   }
 
-  async prune(): Promise<LockOperationResult> {
+  async prune(dryRun = false): Promise<LockOperationResult> {
     const now = this.now();
     return this.withMutex(async () => {
       const locks = await this.readActiveLocks();
@@ -259,6 +259,15 @@ export class FileLockRegistry {
       const pruned = classified
         .filter((item) => item.status === "reclaimable")
         .map((item) => item.lock);
+      if (dryRun) {
+        return {
+          kind: "pruned",
+          exitCode: 0,
+          suggestedAction: "pruned",
+          pruned,
+          dryRun: true,
+        };
+      }
       for (const lock of pruned) {
         await fs.rm(this.lockPath(lock.lockId), { force: true });
         await this.appendEvent("pruned", lock, {});
@@ -268,6 +277,7 @@ export class FileLockRegistry {
         exitCode: 0,
         suggestedAction: "pruned",
         pruned,
+        dryRun: false,
       };
     });
   }

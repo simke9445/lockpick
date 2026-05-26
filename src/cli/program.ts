@@ -54,6 +54,10 @@ interface LockIdentifyOptions extends LockOutputOptions {
   ownerSession?: string;
 }
 
+interface LockPruneOptions extends LockOutputOptions {
+  dryRun?: boolean;
+}
+
 interface LockGitBeginOptions extends LockOutputOptions {
   reason: string;
   refreshLock?: string[];
@@ -262,13 +266,19 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
     program
       .command("prune")
       .description("Remove reclaimable expired locks.")
+      .option("--dry-run", "Print reclaimable locks without deleting them.")
       .allowExcessArguments(false),
-  ).action((_options: LockOutputOptions, command: Command) => {
-    const options = command.opts<LockOutputOptions>();
+  ).action((_options: LockPruneOptions, command: Command) => {
+    const options = command.opts<LockPruneOptions>();
     onCommand?.({
       kind: "lock",
       command: withLockVerbose(
-        { name: "prune", json: Boolean(options.json), idOnly: Boolean(options.idOnly) },
+        {
+          name: "prune",
+          dryRun: Boolean(options.dryRun),
+          json: Boolean(options.json),
+          idOnly: Boolean(options.idOnly),
+        },
         options,
       ),
     });

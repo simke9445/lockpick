@@ -351,6 +351,7 @@ test("prune id-only returns pruned lock ids", async () => {
     const pruned = await executeLockCommand(
       {
         name: "prune",
+        dryRun: false,
         json: false,
         idOnly: true,
       },
@@ -359,6 +360,63 @@ test("prune id-only returns pruned lock ids", async () => {
 
     expect(pruned.exitCode).toBe(0);
     expect(pruned.text.trim()).toBe(acquired.text.trim());
+  });
+});
+
+test("prune dry-run reports reclaimable locks without deleting", async () => {
+  await withWorkspace(async (workspace) => {
+    let now = new Date("2026-05-04T10:00:00Z");
+    const config = resolveLockpickConfig({}, { root: workspace });
+    const registryOptions = {
+      now: () => now,
+      sessionProbe: () => ({ status: "dead" as const, evidence: "fixture dead" }),
+    };
+    const acquired = await executeLockCommand(
+      {
+        name: "acquire",
+        paths: ["stale.ts"],
+        globs: [],
+        reason: "stale lock",
+        ttlMs: 1000,
+        ownerSession: "session-a",
+        json: false,
+        idOnly: true,
+      },
+      { cwd: workspace, config, registryOptions },
+    );
+    now = new Date("2026-05-04T10:00:02Z");
+
+    const planned = await executeLockCommand(
+      {
+        name: "prune",
+        dryRun: true,
+        json: true,
+        idOnly: false,
+      },
+      { cwd: workspace, config, registryOptions },
+    );
+    const statusAfterPlan = await executeLockCommand(
+      {
+        name: "status",
+        paths: [],
+        globs: [],
+        json: true,
+        idOnly: false,
+      },
+      { cwd: workspace, config, registryOptions },
+    );
+
+    expect(planned.json).toMatchObject({
+      kind: "pruned",
+      dry_run: true,
+      pruned_count: 1,
+      pruned_lock_ids: [acquired.text.trim()],
+    });
+    expect(statusAfterPlan.json).toMatchObject({
+      kind: "status",
+      lock_count: 1,
+      lock_ids: [acquired.text.trim()],
+    });
   });
 });
 

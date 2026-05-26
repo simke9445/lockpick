@@ -167,3 +167,14 @@ without changing lock mutation semantics.
   CLI and lock-command tests.
 - Verification passed: `bun test tests/cli.test.ts tests/locks.test.ts`, `bun run typecheck`,
   `bun run lint`, and `bun run check`.
+
+### Chunk: `prune --dry-run`
+
+- Status: completed.
+- Contract: add `lockpick prune --dry-run --json` to report reclaimable expired lock ids without
+  deleting lock files or appending prune events; normal `lockpick prune` behavior remains the
+  mutating path.
+- Verification skill used: `testing-conformance-harnesses`; parser and registry behavior are
+  pinned by focused tests.
+- Verification passed: `bun test tests/cli.test.ts tests/locks.test.ts`, `bun run typecheck`,
+  `bun run lint`, and `bun run check`.
