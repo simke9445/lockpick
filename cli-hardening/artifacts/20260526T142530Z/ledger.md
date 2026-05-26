@@ -217,3 +217,13 @@ without changing lock mutation semantics.
   verbose install JSON behavior in an isolated workspace.
 - Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`,
   `bun run check`, and `bun run src/index.ts install --check --json`.
+
+### Chunk: unknown command suggestions
+
+- Status: completed.
+- Contract: close unknown command matches now fail with an exact corrected `lockpick ...` command
+  in text output and JSON `details.suggestion`.
+- Verification skill used: `testing-conformance-harnesses`; focused subprocess tests pin text and
+  JSON command suggestion behavior.
+- Verification passed: `bun test tests/cli.test.ts`, `bun run typecheck`, `bun run lint`,
+  `bun run check`, `bun run src/index.ts stats --json`, and `bun run src/index.ts capabilties`.

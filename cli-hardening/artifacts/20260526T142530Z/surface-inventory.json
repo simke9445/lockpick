@@ -26,11 +26,8 @@
       "json_robot": "ok=false, code, message, optional details",
       "determinism": "stable commander codes; message text from commander",
       "exit_contract": "1 for parse errors",
-      "agent_ux_score": 7,
-      "risks": [
-        "error JSON is pretty-printed and larger than lock JSON",
-        "unknown command errors still do not include nearest-command suggestions"
-      ]
+      "agent_ux_score": 8,
+      "risks": ["error JSON remains pretty-printed for readability on failures"]
     },
     {
       "name": "lock_mutations",
@@ -132,12 +129,6 @@
   "ranked_candidates": [
     {
       "rank": 1,
-      "candidate": "Add unknown command nearest-command suggestions",
-      "why": "Extends the new error-pedagogy path from flags to command names.",
-      "test_need": "Subprocess tests for mistyped commands with exact alternatives."
-    },
-    {
-      "rank": 2,
       "candidate": "Add doctor/health checks",
       "why": "Useful after core machine-readable inventory exists; should be scoped to config/lock-dir/install health.",
       "test_need": "Fixture workspaces for healthy, missing config, stale mutex, install drift."

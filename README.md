@@ -57,6 +57,7 @@ Lock commands support `--json` and `--verbose`. Commands that return lock ids al
 exit non-zero. When `--json` is present, parse and runtime errors use
 `{ "ok": false, "code": "...", "message": "..." }` where practical.
 Unknown flag errors include a corrected `next:` command when Lockpick can infer the intended flag.
+Unknown command errors include the same correction when the intended command is clear.
 
 Use `lockpick capabilities --json` for the compact machine-readable CLI contract, including command
 flags, mutation/read-only status, JSON support, defaults, environment variables, next commands, and

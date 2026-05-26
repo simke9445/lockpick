@@ -93,8 +93,14 @@ function cliErrorSuggestion(
   message: string,
   argv: string[],
 ): CliErrorSuggestion | null {
-  if (cliErrorCode(error) !== "commander.unknownOption") return null;
-  const unknown = extractUnknownOption(message);
+  const code = cliErrorCode(error);
+  if (code === "commander.unknownOption") return flagSuggestion(message, argv);
+  if (code === "commander.unknownCommand") return commandSuggestion(message, argv);
+  return null;
+}
+
+function flagSuggestion(message: string, argv: string[]): CliErrorSuggestion | null {
+  const unknown = extractQuotedValue(message, "unknown option");
   if (!unknown) return null;
   const replacement = closestKnownFlag(unknown);
   if (!replacement) return null;
@@ -105,8 +111,20 @@ function cliErrorSuggestion(
   };
 }
 
-function extractUnknownOption(message: string): string | null {
-  const match = message.match(/unknown option '([^']+)'/);
+function commandSuggestion(message: string, argv: string[]): CliErrorSuggestion | null {
+  const unknown = extractQuotedValue(message, "unknown command");
+  if (!unknown) return null;
+  const replacement = closestKnownCommand(unknown);
+  if (!replacement) return null;
+  return {
+    replace: unknown,
+    with: replacement,
+    command: renderCorrectedCommand(argv, unknown, replacement),
+  };
+}
+
+function extractQuotedValue(message: string, label: string): string | null {
+  const match = message.match(new RegExp(`${label} '([^']+)'`));
   return match?.[1] ?? null;
 }
 
@@ -118,10 +136,30 @@ function closestKnownFlag(value: string): string | null {
   return best && best.distance <= 2 ? best.flag : null;
 }
 
+function closestKnownCommand(value: string): string | null {
+  const ranked = knownCommands()
+    .map((command) => ({ command, distance: levenshtein(value, command) }))
+    .sort(
+      (left, right) => left.distance - right.distance || left.command.localeCompare(right.command),
+    );
+  const best = ranked[0];
+  return best && best.distance <= 2 ? best.command : null;
+}
+
 function knownFlags(): string[] {
   return [...new Set(lockpickCapabilities().commands.flatMap((command) => command.flags))].sort(
     (left, right) => left.localeCompare(right),
   );
+}
+
+function knownCommands(): string[] {
+  return [
+    ...new Set(
+      lockpickCapabilities()
+        .commands.map((command) => command.name.split(" ")[0])
+        .filter((command): command is string => Boolean(command)),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
 }
 
 function renderCorrectedCommand(argv: string[], unknown: string, replacement: string): string {

@@ -207,6 +207,22 @@ test("unknown flag json errors include suggestion details", async () => {
   });
 });
 
+test("unknown command text errors suggest an exact corrected command", async () => {
+  const result = await runCli(["stats", "--json"]);
+  expect(result.code).toBe(1);
+  expect(result.stdout).toContain('"code": "commander.unknownCommand"');
+  expect(result.stdout).toContain('"command": "lockpick status --json"');
+  expect(result.stderr).toBe("");
+});
+
+test("unknown command plain errors suggest an exact corrected command", async () => {
+  const result = await runCli(["capabilties"]);
+  expect(result.code).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toContain("unknown command 'capabilties'");
+  expect(result.stderr).toContain("next: lockpick capabilities");
+});
+
 test("identify rejects id-only with a precise replacement command", async () => {
   const result = await runCli(["identify", "--id-only", "--json"]);
   expect(result.code).toBe(2);
