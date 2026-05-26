@@ -49,9 +49,6 @@ lockpick release "$file_lock" --id-only
 `install` writes the host-repo support files. `acquire`, `status`, and `release` prove the core
 lock loop without depending on the Lockpick checkout path.
 
-Evidence for the claims in this README is kept in
-[docs/readme-evidence.md](docs/readme-evidence.md).
-
 ## TL;DR
 
 Concurrent repository work usually fails in three places: two workers edit the same file, a stale
