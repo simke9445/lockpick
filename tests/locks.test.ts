@@ -325,6 +325,43 @@ test("lock command supports compact ids and batched refresh and release", async 
   });
 });
 
+test("prune id-only returns pruned lock ids", async () => {
+  await withWorkspace(async (workspace) => {
+    let now = new Date("2026-05-04T10:00:00Z");
+    const config = resolveLockpickConfig({}, { root: workspace });
+    const registryOptions = {
+      now: () => now,
+      sessionProbe: () => ({ status: "dead" as const, evidence: "fixture dead" }),
+    };
+    const acquired = await executeLockCommand(
+      {
+        name: "acquire",
+        paths: ["stale.ts"],
+        globs: [],
+        reason: "stale lock",
+        ttlMs: 1000,
+        ownerSession: "session-a",
+        json: false,
+        idOnly: true,
+      },
+      { cwd: workspace, config, registryOptions },
+    );
+    now = new Date("2026-05-04T10:00:02Z");
+
+    const pruned = await executeLockCommand(
+      {
+        name: "prune",
+        json: false,
+        idOnly: true,
+      },
+      { cwd: workspace, config, registryOptions },
+    );
+
+    expect(pruned.exitCode).toBe(0);
+    expect(pruned.text.trim()).toBe(acquired.text.trim());
+  });
+});
+
 function testRegistry(
   workspace: string,
   now: Date | (() => Date),

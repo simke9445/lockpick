@@ -215,8 +215,11 @@ function renderLockIds(command: LockCommand, results: LockOperationResult[]): st
   const statusIds = results.flatMap((result) =>
     result.kind === "status" ? (result.locks ?? []).map((item) => item.lock.lockId) : [],
   );
+  const prunedIds = results.flatMap((result) =>
+    result.kind === "pruned" ? (result.pruned ?? []).map((lock) => lock.lockId) : [],
+  );
   const lockIds = idResults.map((result) => result.lock?.lockId).filter((id): id is string => !!id);
-  const ids = [...statusIds, ...lockIds];
+  const ids = [...statusIds, ...prunedIds, ...lockIds];
   return ids.join("\n");
 }
 

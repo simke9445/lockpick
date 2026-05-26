@@ -151,6 +151,18 @@ test("json parse errors are machine-readable", async () => {
   expect(payload.message).toEqual(expect.stringContaining("--ttl-ms"));
 });
 
+test("identify rejects id-only with a precise replacement command", async () => {
+  const result = await runCli(["identify", "--id-only", "--json"]);
+  expect(result.code).toBe(2);
+  expect(result.stderr).toBe("");
+  const payload = JSON.parse(result.stdout) as Record<string, unknown>;
+  expect(payload).toMatchObject({
+    ok: false,
+    code: "unsupported_output_option",
+  });
+  expect(payload.message).toContain("lockpick identify --json");
+});
+
 test("capabilities json is compact and machine-readable", async () => {
   const result = await runCli(["capabilities", "--json"]);
   expect(result.code).toBe(0);
@@ -166,6 +178,7 @@ test("capabilities json is compact and machine-readable", async () => {
       name?: unknown;
       mutates?: unknown;
       json?: unknown;
+      id_only?: unknown;
       flags?: unknown;
       exit_codes?: unknown;
     }>;
@@ -184,6 +197,7 @@ test("capabilities json is compact and machine-readable", async () => {
   expect(acquire?.flags).toContain("--reason");
   expect(acquire?.exit_codes).toContain(3);
   expect(payload.commands?.some((command) => command.name === "capabilities")).toBe(true);
+  expect(payload.commands?.find((command) => command.name === "identify")?.id_only).toBe(false);
   expect(payload.exit_codes).toContainEqual({
     code: 3,
     name: "lock_conflict",

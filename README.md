@@ -51,9 +51,10 @@ lockpick git end [locks...] --lock <lock_id> --release-lock <lock_id> --owner-se
 lockpick install --check --json
 ```
 
-Lock commands support `--id-only`, `--json`, and `--verbose`. Success exits `0`. Invalid arguments,
-missing locks, ownership failures, and conflicts exit non-zero. When `--json` is present, parse and
-runtime errors use `{ "ok": false, "code": "...", "message": "..." }` where practical.
+Lock commands support `--json` and `--verbose`. Commands that return lock ids also support
+`--id-only`. Success exits `0`. Invalid arguments, missing locks, ownership failures, and conflicts
+exit non-zero. When `--json` is present, parse and runtime errors use
+`{ "ok": false, "code": "...", "message": "..." }` where practical.
 
 Use `lockpick capabilities --json` for the compact machine-readable CLI contract, including command
 flags, mutation/read-only status, JSON support, defaults, environment variables, next commands, and

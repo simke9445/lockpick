@@ -1,5 +1,5 @@
 import { Command, CommanderError, InvalidArgumentError, type OutputConfiguration } from "commander";
-import type { LockCommand } from "../locks/types";
+import { type LockCommand, LockCommandError } from "../locks/types";
 import type { CapabilitiesCommandOptions } from "./capabilities";
 import type { InstallCommandOptions } from "./commands/install";
 
@@ -282,6 +282,13 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
       .allowExcessArguments(false),
   ).action((_options: LockIdentifyOptions, command: Command) => {
     const options = command.opts<LockIdentifyOptions>();
+    if (options.idOnly) {
+      throw new LockCommandError(
+        "--id-only is not supported for identify; use `lockpick identify --json`.",
+        2,
+        "unsupported_output_option",
+      );
+    }
     onCommand?.({
       kind: "lock",
       command: withLockVerbose(

@@ -64,7 +64,7 @@ deterministic automation, and CLI ergonomics while keeping Lockpick standalone a
 | Capabilities missing | Agents must parse help prose to discover commands and flags. |
 | Exit-code docs incomplete | README only says invalid/conflict exits non-zero; concrete code meanings are implicit. |
 | Output contract not golden-tested | Compact JSON exists, but help and error outputs are not snapshot/golden protected. |
-| `--id-only` is too broad | Global lock output option exposes flag to `identify` and `prune`, where empty success output is possible. |
+| `--id-only` residual scope | `identify --id-only` now fails with a replacement command and `prune --id-only` returns pruned ids; `status --id-only` remains accepted for active lock ids. |
 | No doctor surface | There is no health command for config/install/lock-state diagnosis. |
 
 ## CLI Audit Findings
@@ -157,3 +157,13 @@ without changing lock mutation semantics.
   parser/subprocess tests in `tests/cli.test.ts`.
 - Verification passed: `bun test tests/cli.test.ts`, `bun test`, `bun run typecheck`,
   `bun run lint`, `bun run check`, and `bun run src/index.ts capabilities --json`.
+
+### Chunk: `--id-only` contract tightening
+
+- Status: completed.
+- Contract: `identify --id-only` fails with `unsupported_output_option` and the exact replacement
+  command `lockpick identify --json`; `prune --id-only` now prints the ids of pruned locks.
+- Verification skill used: `testing-conformance-harnesses`; requirements are pinned by focused
+  CLI and lock-command tests.
+- Verification passed: `bun test tests/cli.test.ts tests/locks.test.ts`, `bun run typecheck`,
+  `bun run lint`, and `bun run check`.

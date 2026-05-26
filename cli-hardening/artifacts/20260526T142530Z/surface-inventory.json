@@ -48,7 +48,7 @@
       "exit_contract": "0 success, 2 invalid input, 3 conflict or ownership failure",
       "agent_ux_score": 7,
       "risks": [
-        "--id-only is exposed for commands that may have no affected lock ids",
+        "status --id-only is useful but still broader than the affected-lock-id wording",
         "dangerous mutation plan/dry-run is limited to install only"
       ]
     },
@@ -101,14 +101,14 @@
     },
     {
       "name": "capabilities",
-      "commands": [],
-      "files": [],
-      "stdout_data_stderr_diagnostics": "missing",
-      "json_robot": "missing",
-      "determinism": "not applicable",
-      "exit_contract": "not documented",
-      "agent_ux_score": 2,
-      "risks": ["agents must scrape help text to discover commands and flags"]
+      "commands": ["capabilities --json"],
+      "files": ["src/cli/capabilities.ts", "src/cli/program.ts"],
+      "stdout_data_stderr_diagnostics": "compact JSON contract on stdout",
+      "json_robot": "kind=schema_version=commands=exit_codes=env=defaults",
+      "determinism": "stable source-order command inventory and static defaults",
+      "exit_contract": "0 success",
+      "agent_ux_score": 8,
+      "risks": ["no robot-docs companion yet"]
     },
     {
       "name": "doctor_health",
@@ -125,21 +125,21 @@
   "ranked_candidates": [
     {
       "rank": 1,
-      "candidate": "Add lockpick capabilities --json",
-      "why": "High discoverability/token-efficiency gain without touching lock mutation semantics.",
-      "test_need": "CLI parser tests, subprocess JSON contract test, README docs."
+      "candidate": "Add prune --dry-run --json plan output",
+      "why": "Improves dangerous-op safety for the remaining lock-deleting command.",
+      "test_need": "Registry/CLI tests for planned pruned ids with no file deletion."
     },
     {
       "rank": 2,
-      "candidate": "Document exit-code contract in README/help or capabilities output",
-      "why": "Agents need deterministic recovery behavior.",
-      "test_need": "Golden or conformance assertion over capabilities/README snippets."
+      "candidate": "Add robot-docs guide or concise agent handbook",
+      "why": "Complements capabilities with copy-pasteable human-readable agent workflow guidance.",
+      "test_need": "Subprocess/golden assertion for concise command examples."
     },
     {
       "rank": 3,
-      "candidate": "Tighten --id-only exposure or behavior",
-      "why": "Current global exposure can produce empty successful output for surfaces without lock ids.",
-      "test_need": "Parser/CLI tests for unsupported flag rejection or explicit output."
+      "candidate": "Improve parse error suggestions for common flag typos",
+      "why": "Raises error pedagogy and intent inference for first-try failures.",
+      "test_need": "Subprocess tests for --jsno/--jason and unsupported command hints."
     },
     {
       "rank": 4,
