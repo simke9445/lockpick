@@ -231,7 +231,7 @@ default TTLs, owner environment variables, and next commands.
 | `identify` | Show detected owner identity | `--owner-session`, `--json`, `--verbose` | `--id-only` is rejected; use `identify --json` |
 | `git begin` | Acquire the synthetic `@git/index` lock | `--reason`, `--refresh-lock`, `--ttl-ms`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Can refresh held file locks first |
 | `git end [locks...]` | Release the synthetic Git-index lock | `--lock`, `--release-lock`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Can release file locks after the Git lock |
-| `init` | Install or check host support files | `--check`, `--harness claude-code`, `--json`, `--verbose` | `--check` exits 1 when changes are needed and writes nothing |
+| `init` | Initialize or check host support files | `--check`, `--harness auto\|codex\|claude-code`, `--json`, `--verbose` | `--check` exits 1 when changes are needed and writes nothing |
 | `capabilities` | Print the CLI contract | `--json` | Compact single-line JSON |
 | `robot-docs guide` | Print an in-tool agent workflow guide | none | Human text, deterministic golden-tested output |
 | `doctor` | Run read-only health checks | `--json`, `--verbose` | Exits 1 when warnings or errors are present |

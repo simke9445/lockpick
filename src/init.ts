@@ -63,7 +63,7 @@ const RECOMMENDED_PACKAGE_SCRIPTS: Record<string, string> = {
 export const CLAUDE_LOCKPICK_OWNER_HOOK_PATH = ".claude/hooks/lockpick-owner-env.mjs";
 const CLAUDE_SETTINGS_PATH = ".claude/settings.json";
 const CLAUDE_HOOK_SCRIPT_REFERENCE =
-  "${CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-owner-env.mjs";
+  "$" + "{CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-owner-env.mjs";
 const CLAUDE_HOOK_COMMAND = "node";
 const CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT = `#!/usr/bin/env node
 import { readFileSync } from "node:fs";
@@ -176,7 +176,9 @@ export function resolveInitHarness(
   return "codex";
 }
 
-function instructionsTargetForHarness(harness: Exclude<InitHarness, "auto">): InitInstructionsTarget {
+function instructionsTargetForHarness(
+  harness: Exclude<InitHarness, "auto">,
+): InitInstructionsTarget {
   return harness === "claude-code" ? "claude" : "agents";
 }
 

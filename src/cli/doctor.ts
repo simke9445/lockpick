@@ -1,8 +1,14 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { loadLockpickConfig, renderLockpickCommand } from "../config";
-import { runInit } from "../init";
+import { loadLockpickConfig, type ResolvedLockpickConfig, renderLockpickCommand } from "../config";
+import { type InitHarness, runInit } from "../init";
 import { pathExists } from "../io";
+import {
+  CLAUDE_CODE_SESSION_ENV_KEY,
+  CODEX_OWNER_ENV_KEY,
+  identifyLockOwner,
+  lockOwnerSessionId,
+} from "../locks/session";
 import { REGISTRY_MUTEX_STALE_MS } from "../locks/types";
 
 export interface DoctorCommandOptions {
@@ -53,8 +59,10 @@ export async function runDoctor(options: DoctorCommandOptions): Promise<DoctorRe
     ),
   );
   checks.push(await mutexCheck(path.join(config.lockRoot, ".mutex")));
+  checks.push(...(await harnessChecks(config.root, config)));
 
-  const init = await runInit({ root: config.root, check: true });
+  const initHarness = doctorInitHarness(process.env);
+  const init = await runInit({ root: config.root, check: true, harness: initHarness });
   const initDrift = init.changes.filter((change) =>
     ["would_create", "would_update", "reported"].includes(change.action),
   );
@@ -66,7 +74,12 @@ export async function runDoctor(options: DoctorCommandOptions): Promise<DoctorRe
         ? "init support files are current"
         : `init drift detected: ${initDrift.length} change(s)`,
   };
-  if (initDrift.length > 0) initCheck.next = renderLockpickCommand(config, ["init"]);
+  if (initDrift.length > 0) {
+    initCheck.next =
+      initHarness === "claude-code"
+        ? renderLockpickCommand(config, ["init", "--harness", "claude-code"])
+        : renderLockpickCommand(config, ["init"]);
+  }
   if (options.verbose) initCheck.details = { changes: init.changes };
   checks.push(initCheck);
 
@@ -136,6 +149,65 @@ async function mutexCheck(mutexPath: string): Promise<DoctorCheck> {
       message: `could not inspect registry mutex: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
+}
+
+async function harnessChecks(root: string, config: ResolvedLockpickConfig): Promise<DoctorCheck[]> {
+  const checks: DoctorCheck[] = [];
+  const claudeSession = process.env[CLAUDE_CODE_SESSION_ENV_KEY]?.trim();
+  if (claudeSession) {
+    const hookPath = path.join(root, ".claude/hooks/lockpick-owner-env.mjs");
+    const hookExists = await pathExists(hookPath);
+    const hookCheck: DoctorCheck = {
+      id: "claude_owner_hook",
+      status: hookExists ? "ok" : "warn",
+      message: hookExists
+        ? "Claude Code owner hook exists"
+        : "Claude Code owner hook missing; subagents will share session-scope ownership",
+    };
+    if (!hookExists) {
+      hookCheck.next = renderLockpickCommand(config, ["init", "--harness", "claude-code"]);
+    }
+    checks.push(hookCheck);
+
+    const owner = identifyLockOwner({
+      cwd: root,
+      env: process.env,
+      envKeys: config.owner.envKeys,
+      harnesses: config.owner.harnesses,
+      supervisorEnvKeys: config.owner.supervisorEnvKeys,
+      fallbackPrefix: config.owner.fallbackPrefix,
+    });
+    const sessionScope = owner.harness === "claude-code" && owner.harnessScope === "session";
+    const ownerScopeCheck: DoctorCheck = {
+      id: "owner_session_scope",
+      status: sessionScope ? "warn" : "ok",
+      message: sessionScope
+        ? `owner ${lockOwnerSessionId(owner)} is Claude session-scoped, not agent-scoped`
+        : "owner identity is agent-scoped or explicitly configured",
+    };
+    if (sessionScope) {
+      ownerScopeCheck.next = renderLockpickCommand(config, ["init", "--harness", "claude-code"]);
+    }
+    checks.push(ownerScopeCheck);
+  }
+
+  const codexLikely =
+    Boolean(process.env.CODEX_CI?.trim()) ||
+    Boolean(process.env.CODEX_HOME?.trim()) ||
+    Boolean(process.env[CODEX_OWNER_ENV_KEY]?.trim());
+  if (codexLikely && !process.env[CODEX_OWNER_ENV_KEY]?.trim()) {
+    checks.push({
+      id: "codex_thread_id",
+      status: "warn",
+      message: `${CODEX_OWNER_ENV_KEY} is unavailable; Codex owner detection will fall back`,
+    });
+  }
+
+  return checks;
+}
+
+function doctorInitHarness(env: NodeJS.ProcessEnv): InitHarness {
+  return env[CLAUDE_CODE_SESSION_ENV_KEY]?.trim() ? "claude-code" : "auto";
 }
 
 function compactCheck(check: DoctorCheck): DoctorCheck {

@@ -10,10 +10,10 @@ export {
   resolveLockpickConfig,
 } from "./config";
 export {
+  CLAUDE_LOCKPICK_OWNER_HOOK_PATH,
   type InitHarness,
   type InitInstructionsTarget,
   type InitResult,
-  CLAUDE_LOCKPICK_OWNER_HOOK_PATH,
   lockpickAgentsSnippet,
   renderClaudeLockpickOwnerHookScript,
   renderInitResult,

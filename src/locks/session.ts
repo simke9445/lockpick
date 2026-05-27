@@ -41,10 +41,7 @@ export function detectSessionId(
 export function detectHarnessSessionId(
   env: NodeJS.ProcessEnv = process.env,
   harnesses: readonly OwnerHarness[] = DEFAULT_OWNER_HARNESSES,
-): Pick<
-  LockOwner,
-  "sessionId" | "source" | "harness" | "harnessScope" | "rawSessionId"
-> | null {
+): Pick<LockOwner, "sessionId" | "source" | "harness" | "harnessScope" | "rawSessionId"> | null {
   for (const harness of harnesses) {
     switch (harness) {
       case "codex": {
@@ -85,7 +82,8 @@ export function identifyLockOwner(options: IdentifyOwnerOptions): LockOwner {
     : detectSessionId(env, envKeys);
   const harnessDetected = detected ? null : detectHarnessSessionId(env, harnesses);
   const fallbackSessionId = fallbackOwnerId(options.fallbackPrefix ?? "lockpick");
-  const resolved = detected ?? harnessDetected ?? { sessionId: fallbackSessionId, source: "fallback" };
+  const resolved = detected ??
+    harnessDetected ?? { sessionId: fallbackSessionId, source: "fallback" };
   const parsed = parseHarnessOwnerSessionId(resolved.sessionId);
   const supervisorSessionId = detectSupervisorSessionId(env, supervisorEnvKeys);
   const owner: LockOwner = {
@@ -167,9 +165,7 @@ function detectSupervisorSessionId(
   return null;
 }
 
-function parseHarnessOwnerSessionId(
-  sessionId: string,
-): {
+function parseHarnessOwnerSessionId(sessionId: string): {
   harness?: LockOwnerHarness;
   harnessScope?: LockOwnerHarnessScope;
   rawSessionId?: string;
@@ -213,9 +209,7 @@ function parseHarnessOwnerSessionId(
     };
   }
 
-  return sessionId.startsWith("lockpick:")
-    ? { harness: "lockpick", harnessScope: "fallback" }
-    : {};
+  return sessionId.startsWith("lockpick:") ? { harness: "lockpick", harnessScope: "fallback" } : {};
 }
 
 function codexHome(): string {

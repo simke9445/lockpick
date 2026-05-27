@@ -44,6 +44,15 @@ interface EnvCapability {
   purpose: string;
 }
 
+interface OwnerDetectionCapability {
+  order: string[];
+  harnesses: Array<{
+    name: "codex" | "claude-code";
+    primary_env: string;
+    scope: "agent" | "session";
+  }>;
+}
+
 export interface LockpickCapabilities {
   kind: "capabilities";
   schema_version: 1;
@@ -53,6 +62,7 @@ export interface LockpickCapabilities {
   commands: CommandCapability[];
   exit_codes: ExitCodeCapability[];
   env: EnvCapability[];
+  owner_detection: OwnerDetectionCapability;
   defaults: {
     config_file: string;
     lock_root: string;
@@ -308,6 +318,28 @@ export function lockpickCapabilities(): LockpickCapabilities {
         purpose: "Claude Code session id used as automatic session-scope owner fallback.",
       },
     ],
+    owner_detection: {
+      order: [
+        "--owner-session",
+        "LOCKPICK_OWNER_SESSION",
+        "LOCKPICK_SESSION_ID",
+        CODEX_OWNER_ENV_KEY,
+        CLAUDE_CODE_SESSION_ENV_KEY,
+        "fallback",
+      ],
+      harnesses: [
+        {
+          name: "codex",
+          primary_env: CODEX_OWNER_ENV_KEY,
+          scope: "agent",
+        },
+        {
+          name: "claude-code",
+          primary_env: CLAUDE_CODE_SESSION_ENV_KEY,
+          scope: "session",
+        },
+      ],
+    },
     defaults: {
       config_file: DEFAULT_CONFIG_FILE,
       lock_root: DEFAULT_LOCK_ROOT,

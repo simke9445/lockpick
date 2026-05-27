@@ -14,12 +14,17 @@ interface CliResult {
   code: number | null;
 }
 
-async function runCli(args: string[], cwd = process.cwd()): Promise<CliResult> {
+async function runCli(
+  args: string[],
+  cwd = process.cwd(),
+  env: Record<string, string> = {},
+): Promise<CliResult> {
   return execFileAsync(
     process.execPath,
     ["run", path.join(process.cwd(), "src/index.ts"), ...args],
     {
       cwd,
+      env: { ...process.env, ...env },
     },
   )
     .then(({ stdout, stderr }) => ({ stdout, stderr, code: 0 }))
@@ -304,6 +309,10 @@ test("capabilities json is compact and machine-readable", async () => {
     }>;
     exit_codes?: Array<{ code?: unknown; name?: unknown; meaning?: unknown }>;
     env?: Array<{ name?: unknown }>;
+    owner_detection?: {
+      order?: unknown;
+      harnesses?: Array<{ name?: unknown; primary_env?: unknown; scope?: unknown }>;
+    };
   };
 
   expect(payload.kind).toBe("capabilities");
@@ -341,6 +350,17 @@ test("capabilities json is compact and machine-readable", async () => {
     meaning: "Lock conflict or ownership failure.",
   });
   expect(payload.env?.map((entry) => entry.name)).toContain("LOCKPICK_OWNER_SESSION");
+  expect(payload.env?.map((entry) => entry.name)).toContain("CODEX_THREAD_ID");
+  expect(payload.env?.map((entry) => entry.name)).toContain("CLAUDE_CODE_SESSION_ID");
+  expect(payload.owner_detection?.order).toEqual(
+    expect.arrayContaining(["--owner-session", "CODEX_THREAD_ID", "CLAUDE_CODE_SESSION_ID"]),
+  );
+  expect(payload.owner_detection?.harnesses).toEqual(
+    expect.arrayContaining([
+      { name: "codex", primary_env: "CODEX_THREAD_ID", scope: "agent" },
+      { name: "claude-code", primary_env: "CLAUDE_CODE_SESSION_ID", scope: "session" },
+    ]),
+  );
 });
 
 test("robot docs guide matches golden output", async () => {
@@ -387,11 +407,7 @@ test("init check json is compact by default with verbose full output", async () 
       path: ".lockpick/locks",
       action: "would_create",
     });
-    expect(payload.recommended_scripts).toEqual([
-      "lockpick",
-      "lockpick:init",
-      "lockpick:status",
-    ]);
+    expect(payload.recommended_scripts).toEqual(["lockpick", "lockpick:init", "lockpick:status"]);
     expect(payload.root).toBeUndefined();
 
     const verbose = await runCli(["init", "--check", "--json", "--verbose"], workspace);
@@ -478,6 +494,59 @@ test("doctor json reports read-only health checks", async () => {
       checks?: Array<{ id?: unknown; details?: unknown }>;
     };
     expect(verbosePayload.checks?.find((check) => check.id === "init")?.details).toBeDefined();
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("doctor reports Claude Code hook and session-scope owner diagnostics", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-doctor-claude-"));
+  try {
+    await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
+    const result = await runCli(["doctor", "--json", "--verbose"], workspace, {
+      CLAUDE_CODE_SESSION_ID: "claude-session",
+      CODEX_THREAD_ID: "",
+      CODEX_CI: "",
+      LOCKPICK_OWNER_SESSION: "",
+      LOCKPICK_SESSION_ID: "",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stderr).toBe("");
+    const payload = JSON.parse(result.stdout) as {
+      checks?: Array<{
+        id?: unknown;
+        status?: unknown;
+        details?: { changes?: Array<{ path?: unknown }> };
+      }>;
+    };
+    expect(payload.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "claude_owner_hook", status: "warn" }),
+        expect.objectContaining({ id: "owner_session_scope", status: "warn" }),
+      ]),
+    );
+    const initChanges = payload.checks?.find((check) => check.id === "init")?.details?.changes;
+    expect(initChanges?.map((change) => change.path)).toEqual(
+      expect.arrayContaining([".claude/hooks/lockpick-owner-env.mjs", ".claude/settings.json"]),
+    );
+
+    await runCli(["init", "--harness", "claude-code"], workspace);
+    const afterInit = await runCli(["doctor", "--json", "--verbose"], workspace, {
+      CLAUDE_CODE_SESSION_ID: "claude-session",
+      CODEX_THREAD_ID: "",
+      CODEX_CI: "",
+      LOCKPICK_OWNER_SESSION: "claude-code:claude-session:main",
+      LOCKPICK_SESSION_ID: "",
+    });
+    const afterPayload = JSON.parse(afterInit.stdout) as {
+      checks?: Array<{ id?: unknown; status?: unknown }>;
+    };
+    expect(afterPayload.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "claude_owner_hook", status: "ok" }),
+        expect.objectContaining({ id: "owner_session_scope", status: "ok" }),
+      ]),
+    );
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

@@ -231,9 +231,7 @@ test("owner detection supports explicit, configured env, and fallback session id
       env: { CODEX_THREAD_ID: "codex-thread" },
     }).identify();
     expect(codex.owner ? lockOwnerSessionId(codex.owner) : null).toBe("codex:codex-thread");
-    expect(codex.owner ? lockOwnerSource(codex.owner) : null).toBe(
-      "harness:codex:CODEX_THREAD_ID",
-    );
+    expect(codex.owner ? lockOwnerSource(codex.owner) : null).toBe("harness:codex:CODEX_THREAD_ID");
     expect(codex.owner?.harness).toBe("codex");
     expect(codex.owner?.harnessScope).toBe("agent");
     expect(codex.owner?.rawSessionId).toBe("codex-thread");

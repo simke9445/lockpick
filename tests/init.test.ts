@@ -10,7 +10,6 @@ import {
   runInit,
 } from "../src/index";
 
-
 test("init creates support files in an empty repo", async () => {
   await withWorkspace(async (workspace) => {
     await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
@@ -97,7 +96,7 @@ test("init can target CLAUDE instructions for Claude Code harness", async () => 
         expect.objectContaining({
           type: "command",
           command: "node",
-          args: ["${CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-owner-env.mjs"],
+          args: ["$" + "{CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-owner-env.mjs"],
         }),
       ]),
     );
