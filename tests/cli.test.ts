@@ -75,7 +75,7 @@ test("parse lock acquire command", () => {
     "add lock parser",
     "--ttl-ms",
     "1000",
-    "--owner-session",
+    "--agent-id",
     "owner-1",
     "--json",
     "--id-only",
@@ -88,7 +88,7 @@ test("parse lock acquire command", () => {
     globs: ["src/locks/**/*.ts"],
     reason: "add lock parser",
     ttlMs: 1000,
-    ownerSession: "owner-1",
+    agentId: "owner-1",
     json: true,
     idOnly: true,
   });
@@ -110,7 +110,7 @@ test("parse lock git helpers for combined commit coordination", () => {
     name: "git-begin",
     reason: "commit lock feature",
     ttlMs: null,
-    ownerSession: null,
+    agentId: null,
     refreshLockIds: ["lock_files"],
     json: false,
     idOnly: true,
@@ -123,7 +123,7 @@ test("parse lock git helpers for combined commit coordination", () => {
     name: "git-end",
     lockIds: ["lock_git"],
     releaseLockIds: ["lock_files"],
-    ownerSession: null,
+    agentId: null,
     json: false,
     idOnly: false,
   });
@@ -349,12 +349,18 @@ test("capabilities json is compact and machine-readable", async () => {
     name: "lock_conflict",
     meaning: "Lock conflict or ownership failure.",
   });
-  expect(payload.env?.map((entry) => entry.name)).toContain("LOCKPICK_OWNER_SESSION");
+  expect(payload.env?.map((entry) => entry.name)).toContain("LOCKPICK_AGENT_ID");
+  expect(payload.env?.map((entry) => entry.name)).toContain("LOCKPICK_HARNESS_AGENT_ID");
   expect(payload.env?.map((entry) => entry.name)).toContain("CODEX_THREAD_ID");
   expect(payload.env?.map((entry) => entry.name)).toContain("CLAUDE_CODE_SESSION_ID");
-  expect(payload.owner_detection?.order).toEqual(
-    expect.arrayContaining(["--owner-session", "CODEX_THREAD_ID", "CLAUDE_CODE_SESSION_ID"]),
-  );
+  expect(payload.owner_detection?.order).toEqual([
+    "LOCKPICK_HARNESS_AGENT_ID",
+    "CODEX_THREAD_ID",
+    "CLAUDE_CODE_SESSION_ID",
+    "--agent-id",
+    "LOCKPICK_AGENT_ID",
+    "fallback",
+  ]);
   expect(payload.owner_detection?.harnesses).toEqual(
     expect.arrayContaining([
       { name: "codex", primary_env: "CODEX_THREAD_ID", scope: "agent" },
@@ -499,7 +505,7 @@ test("doctor json reports read-only health checks", async () => {
   }
 });
 
-test("doctor reports Claude Code hook and session-scope owner diagnostics", async () => {
+test("doctor reports Claude Code hook and session-scope agent diagnostics", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-doctor-claude-"));
   try {
     await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
@@ -507,8 +513,8 @@ test("doctor reports Claude Code hook and session-scope owner diagnostics", asyn
       CLAUDE_CODE_SESSION_ID: "claude-session",
       CODEX_THREAD_ID: "",
       CODEX_CI: "",
-      LOCKPICK_OWNER_SESSION: "",
-      LOCKPICK_SESSION_ID: "",
+      LOCKPICK_AGENT_ID: "",
+      LOCKPICK_HARNESS_AGENT_ID: "",
     });
     expect(result.code).toBe(1);
     expect(result.stderr).toBe("");
@@ -521,13 +527,13 @@ test("doctor reports Claude Code hook and session-scope owner diagnostics", asyn
     };
     expect(payload.checks).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "claude_owner_hook", status: "warn" }),
-        expect.objectContaining({ id: "owner_session_scope", status: "warn" }),
+        expect.objectContaining({ id: "claude_agent_hook", status: "warn" }),
+        expect.objectContaining({ id: "agent_session_scope", status: "warn" }),
       ]),
     );
     const initChanges = payload.checks?.find((check) => check.id === "init")?.details?.changes;
     expect(initChanges?.map((change) => change.path)).toEqual(
-      expect.arrayContaining([".claude/hooks/lockpick-owner-env.mjs", ".claude/settings.json"]),
+      expect.arrayContaining([".claude/hooks/lockpick-agent-env.mjs", ".claude/settings.json"]),
     );
 
     await runCli(["init", "--harness", "claude-code"], workspace);
@@ -535,16 +541,16 @@ test("doctor reports Claude Code hook and session-scope owner diagnostics", asyn
       CLAUDE_CODE_SESSION_ID: "claude-session",
       CODEX_THREAD_ID: "",
       CODEX_CI: "",
-      LOCKPICK_OWNER_SESSION: "claude-code:claude-session:main",
-      LOCKPICK_SESSION_ID: "",
+      LOCKPICK_AGENT_ID: "",
+      LOCKPICK_HARNESS_AGENT_ID: "claude-code:claude-session:main",
     });
     const afterPayload = JSON.parse(afterInit.stdout) as {
       checks?: Array<{ id?: unknown; status?: unknown }>;
     };
     expect(afterPayload.checks).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "claude_owner_hook", status: "ok" }),
-        expect.objectContaining({ id: "owner_session_scope", status: "ok" }),
+        expect.objectContaining({ id: "claude_agent_hook", status: "ok" }),
+        expect.objectContaining({ id: "agent_session_scope", status: "ok" }),
       ]),
     );
   } finally {

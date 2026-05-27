@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
-  CLAUDE_LOCKPICK_OWNER_HOOK_PATH,
+  CLAUDE_LOCKPICK_AGENT_HOOK_PATH,
   lockpickAgentsSnippet,
   resolveLockpickConfig,
   runInit,
@@ -74,7 +74,7 @@ test("init can target CLAUDE instructions for Claude Code harness", async () => 
       expect.arrayContaining([
         expect.objectContaining({ path: "CLAUDE.md", action: "created" }),
         expect.objectContaining({
-          path: CLAUDE_LOCKPICK_OWNER_HOOK_PATH,
+          path: CLAUDE_LOCKPICK_AGENT_HOOK_PATH,
           action: "created",
         }),
         expect.objectContaining({ path: ".claude/settings.json", action: "created" }),
@@ -96,17 +96,17 @@ test("init can target CLAUDE instructions for Claude Code harness", async () => 
         expect.objectContaining({
           type: "command",
           command: "node",
-          args: ["$" + "{CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-owner-env.mjs"],
+          args: ["$" + "{CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-agent-env.mjs"],
         }),
       ]),
     );
   });
 });
 
-test("Claude owner hook prefixes Lockpick Bash commands with main or agent owner", async () => {
+test("Claude agent hook prefixes Lockpick Bash commands with main or subagent identity", async () => {
   await withWorkspace(async (workspace) => {
     await runInit({ root: workspace, harness: "claude-code" });
-    const hookPath = path.join(workspace, CLAUDE_LOCKPICK_OWNER_HOOK_PATH);
+    const hookPath = path.join(workspace, CLAUDE_LOCKPICK_AGENT_HOOK_PATH);
 
     await expect(
       runHook(hookPath, {
@@ -143,7 +143,7 @@ test("Claude owner hook prefixes Lockpick Bash commands with main or agent owner
     expect(main.hookSpecificOutput?.additionalContext).toBeUndefined();
     expect(main.hookSpecificOutput?.permissionDecision).toBeUndefined();
     expect(main.hookSpecificOutput?.updatedInput?.command).toBe(
-      "export LOCKPICK_OWNER_SESSION='claude-code:session-1:main'; lockpick acquire README.md --reason edit",
+      "export LOCKPICK_HARNESS_AGENT_ID='claude-code:session-1:main'; lockpick acquire README.md --reason edit",
     );
 
     const agent = JSON.parse(
@@ -161,15 +161,15 @@ test("Claude owner hook prefixes Lockpick Bash commands with main or agent owner
       };
     };
     expect(agent.hookSpecificOutput?.updatedInput?.command).toBe(
-      "export LOCKPICK_OWNER_SESSION='claude-code:session-1:agent:agent-1'; bun run --silent lockpick -- acquire README.md --reason edit",
+      "export LOCKPICK_HARNESS_AGENT_ID='claude-code:session-1:agent:agent-1'; bun run --silent lockpick -- acquire README.md --reason edit",
     );
   });
 });
 
-test("Claude owner hook does not override explicit Lockpick owners", async () => {
+test("Claude agent hook does not override explicit Lockpick agent ids", async () => {
   await withWorkspace(async (workspace) => {
     await runInit({ root: workspace, harness: "claude-code" });
-    const hookPath = path.join(workspace, CLAUDE_LOCKPICK_OWNER_HOOK_PATH);
+    const hookPath = path.join(workspace, CLAUDE_LOCKPICK_AGENT_HOOK_PATH);
     await expect(
       runHook(hookPath, {
         hook_event_name: "PreToolUse",
@@ -177,7 +177,7 @@ test("Claude owner hook does not override explicit Lockpick owners", async () =>
         agent_id: "agent-1",
         tool_name: "Bash",
         tool_input: {
-          command: "LOCKPICK_OWNER_SESSION=custom lockpick status",
+          command: "LOCKPICK_HARNESS_AGENT_ID=custom lockpick status",
         },
       }),
     ).resolves.toBe("");
@@ -188,7 +188,18 @@ test("Claude owner hook does not override explicit Lockpick owners", async () =>
         agent_id: "agent-1",
         tool_name: "Bash",
         tool_input: {
-          command: "lockpick acquire README.md --reason edit --owner-session custom",
+          command: "LOCKPICK_AGENT_ID=custom lockpick status",
+        },
+      }),
+    ).resolves.toBe("");
+    await expect(
+      runHook(hookPath, {
+        hook_event_name: "PreToolUse",
+        session_id: "session-1",
+        agent_id: "agent-1",
+        tool_name: "Bash",
+        tool_input: {
+          command: "lockpick acquire README.md --reason edit --agent-id custom",
         },
       }),
     ).resolves.toBe("");

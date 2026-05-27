@@ -8,7 +8,7 @@ Local advisory locks for multi-agent coding in one Git worktree.
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Status pre-release](https://img.shields.io/badge/status-pre--release-orange)
 
-Lockpick coordinates agents and humans working in the same repository by giving the worktree a
+Lockpick coordinates coding agents working in the same repository by giving the worktree a
 small local lock registry. Reserve exact files, refresh short leases, recover reclaimable stale
 locks, and serialize `git add` or `git commit` through a synthetic `@git/index` resource. State is
 ordinary files under `.lockpick/locks`; there is no daemon, database, hosted service, or
@@ -33,14 +33,14 @@ lockpick --help
 
 If the command is not found, add your package manager's global binary directory to `PATH`.
 
-Use the global command from any host repository:
+Inside Codex or Claude Code, use the global command from any host repository:
 
 ```bash
 cd ../your-repo
 lockpick init --check --json || true
 lockpick init
 
-export LOCKPICK_OWNER_SESSION="${USER:-user}-$(date +%s)"
+lockpick identify --json
 file_lock="$(lockpick acquire README.md --reason "edit README" --id-only)"
 lockpick status --json
 lockpick release "$file_lock" --id-only
@@ -69,15 +69,15 @@ editor, shell command, or Git operation that ignores the protocol.
 
 ## Quick Demo
 
-This demo runs against a temporary host repository with the global `lockpick` command. It uses
-`LOCKPICK_OWNER_SESSION` because the fallback owner id includes the process id; a stable owner lets
-separate shell commands refresh and release the same lock.
+This standalone shell demo runs against a temporary host repository with the global `lockpick`
+command. It pins `LOCKPICK_AGENT_ID` only because the demo is outside a supported agent harness;
+Codex and Claude Code sessions are detected automatically.
 
 ```bash
 HOST="$(mktemp -d)"
 cd "$HOST"
 git init -q
-export LOCKPICK_OWNER_SESSION="demo-$$"
+export LOCKPICK_AGENT_ID="demo-$$"
 
 printf 'console.log("hello")\n' > app.ts
 printf '# Demo host repo\n' > AGENTS.md
@@ -112,12 +112,12 @@ doctor reports ok true after init completes.
 
 | Approach | Works well for | Where it falls short for shared worktrees |
 | --- | --- | --- |
-| Manual notes in chat or issues | Human coordination and intent | No lease, no owner check, no parseable status, easy to forget before staging |
+| Manual notes in chat or issues | Informal coordination and intent | No lease, no owner check, no parseable status, easy to forget before staging |
 | Shell scripts | Local conventions around one repo | Usually miss conflict semantics, stale sessions, JSON contracts, and Git-index locking |
 | `flock` | Process-level critical sections on one machine | Not a repo resource registry; no path/glob inventory, owner metadata, install guidance, or agent docs |
 | Git hooks | Commit-time policy checks | Too late to prevent overlapping edits; hooks do not coordinate `git add` across workers |
 | Hosted lock service | Cross-machine coordination | Requires a service, credentials, network access, and operational ownership |
-| Lockpick | Local agents and humans in one repository worktree | Advisory only; participants must opt in and use the commands |
+| Lockpick | Local agents in one repository worktree | Advisory only; participants must opt in and use the commands |
 
 ## Install Details
 
@@ -150,7 +150,7 @@ repository that should use advisory locking.
 | `AGENTS.md` | Marked Lockpick instructions block by default |
 | `CLAUDE.md` | Marked instructions block when `--harness claude-code` is used |
 | `.claude/settings.json` | Adds a Claude Code `PreToolUse` hook when `--harness claude-code` is used |
-| `.claude/hooks/lockpick-owner-env.mjs` | Per-Bash-call owner injection hook for Claude Code subagents |
+| `.claude/hooks/lockpick-agent-env.mjs` | Per-Bash-call agent id hook for Claude Code subagents |
 | `.gitignore` | Adds `.lockpick/` |
 | `package.json` | Adds missing recommended scripts when a package file exists |
 
@@ -181,10 +181,9 @@ The examples in this section assume the global install from [Setup And Usage](#s
    lockpick init --harness claude-code
    ```
 
-2. Use a stable owner across shell commands.
+2. Inspect the detected agent id.
 
    ```bash
-   export LOCKPICK_OWNER_SESSION="${USER:-user}-$(date +%s)"
    lockpick identify --json
    ```
 
@@ -218,19 +217,19 @@ The examples in this section assume the global install from [Setup And Usage](#s
 ## Command Reference
 
 `lockpick capabilities --json` is the source of truth for command metadata, flags, exit codes,
-default TTLs, owner environment variables, and next commands.
+default TTLs, agent identity detection, and next commands.
 
 | Command | Purpose | Key flags | Output notes |
 | --- | --- | --- | --- |
-| `acquire [paths...]` | Acquire locks for exact repo-relative paths or globs | `--glob`, `--reason`, `--ttl-ms`, `--owner-session`, `--json`, `--id-only`, `--verbose` | `--reason` and at least one path or glob are required |
-| `expand --lock <id> [paths...]` | Add paths or globs to an existing lock atomically | `--lock`, `--glob`, `--ttl-ms`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Requires the owning session |
-| `refresh [locks...]` | Extend held lock leases | `--lock`, `--ttl-ms`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Positional ids and repeatable `--lock` are merged |
-| `release [locks...]` | Release held locks | `--lock`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Requires the owning session |
+| `acquire [paths...]` | Acquire locks for exact repo-relative paths or globs | `--glob`, `--reason`, `--ttl-ms`, `--agent-id`, `--json`, `--id-only`, `--verbose` | `--reason` and at least one path or glob are required |
+| `expand --lock <id> [paths...]` | Add paths or globs to an existing lock atomically | `--lock`, `--glob`, `--ttl-ms`, `--agent-id`, `--json`, `--id-only`, `--verbose` | Requires the owning agent id |
+| `refresh [locks...]` | Extend held lock leases | `--lock`, `--ttl-ms`, `--agent-id`, `--json`, `--id-only`, `--verbose` | Positional ids and repeatable `--lock` are merged |
+| `release [locks...]` | Release held locks | `--lock`, `--agent-id`, `--json`, `--id-only`, `--verbose` | Requires the owning agent id |
 | `status [paths...]` | List active locks, optionally filtered by resources | `--glob`, `--json`, `--id-only`, `--verbose` | `--id-only` prints active matching lock ids |
 | `prune` | Remove reclaimable expired locks | `--dry-run`, `--json`, `--id-only`, `--verbose` | Use `--dry-run` before deleting |
-| `identify` | Show detected owner identity | `--owner-session`, `--json`, `--verbose` | `--id-only` is rejected; use `identify --json` |
-| `git begin` | Acquire the synthetic `@git/index` lock | `--reason`, `--refresh-lock`, `--ttl-ms`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Can refresh held file locks first |
-| `git end [locks...]` | Release the synthetic Git-index lock | `--lock`, `--release-lock`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Can release file locks after the Git lock |
+| `identify` | Show detected agent identity | `--agent-id`, `--json`, `--verbose` | `--id-only` is rejected; use `identify --json` |
+| `git begin` | Acquire the synthetic `@git/index` lock | `--reason`, `--refresh-lock`, `--ttl-ms`, `--agent-id`, `--json`, `--id-only`, `--verbose` | Can refresh held file locks first |
+| `git end [locks...]` | Release the synthetic Git-index lock | `--lock`, `--release-lock`, `--agent-id`, `--json`, `--id-only`, `--verbose` | Can release file locks after the Git lock |
 | `init` | Initialize or check host support files | `--check`, `--harness auto\|codex\|claude-code`, `--json`, `--verbose` | `--check` exits 1 when changes are needed and writes nothing |
 | `capabilities` | Print the CLI contract | `--json` | Compact single-line JSON |
 | `robot-docs guide` | Print an in-tool agent workflow guide | none | Human text, deterministic golden-tested output |
@@ -290,16 +289,13 @@ export default {
   },
 
   owner: {
-    // Checked after explicit --owner-session.
-    envKeys: ["LOCKPICK_OWNER_SESSION", "LOCKPICK_SESSION_ID"],
+    // Checked after supported harnesses and explicit --agent-id.
+    envKeys: ["LOCKPICK_AGENT_ID"],
 
-    // Runtime harnesses checked after explicit/env owner ids.
+    // Runtime harnesses checked first.
     harnesses: ["codex", "claude-code"],
 
-    // Recorded as optional supervising session metadata.
-    supervisorEnvKeys: ["LOCKPICK_SUPERVISOR_SESSION_ID"],
-
-    // Generic fallback owner prefix when no explicit or env owner is available.
+    // Generic fallback prefix when no harness, explicit id, or env id is available.
     fallbackPrefix: "lockpick",
   },
 
@@ -350,7 +346,7 @@ const result = await executeLockCommand({
   globs: [],
   reason: "edit library entry",
   ttlMs: null,
-  ownerSession: "docs-example",
+  agentId: "docs-example",
   json: true,
   idOnly: false,
 });
@@ -358,7 +354,7 @@ const result = await executeLockCommand({
 console.log(result.exitCode, result.json);
 
 const registry = new FileLockRegistry({ cwd: process.cwd() });
-console.log(registry.identify("docs-example").owner?.sessionId);
+console.log(registry.identify("docs-example").owner?.agentId);
 
 await loadLockpickConfig();
 console.log(config.lockRoot);
@@ -400,7 +396,7 @@ Lockpick is built for cooperative local coordination.
 | Guarantee | Details |
 | --- | --- |
 | Advisory locking | Lockpick reports and records conflicts; it does not patch editors, shells, or Git to enforce them |
-| Owner-only changes | `expand`, `refresh`, and `release` require the owner session id recorded on the lock |
+| Owner-only changes | `expand`, `refresh`, and `release` require the agent id recorded on the lock |
 | Short leases | Default TTL is 10 minutes; maximum default is 30 minutes |
 | Stale recovery | Expired locks are classified by liveness and become reclaimable after the configured unknown-liveness grace |
 | Safe inspection | `init --check --json`, `prune --dry-run --json`, `status --json`, `capabilities --json`, and `doctor --json` are the inspection surfaces |
@@ -415,7 +411,7 @@ or a migration layer for old lock schemas. The lock record schema is current-ver
 | --- | --- | --- |
 | `lock conflict: <path>` | Another active or unreclaimable lock overlaps your requested resource | `lockpick status <path> --json` |
 | Conflict JSON has `suggested_action: "prune_then_retry"` | All overlapping locks are reclaimable | `lockpick prune --dry-run --json`, then `lockpick prune` |
-| `Lock <id> is owned by <owner>; current owner is <caller>.` | Your shell is not using the owner session that created the lock | `export LOCKPICK_OWNER_SESSION=<owner>` or retry with `--owner-session <owner>` |
+| `Lock <id> is owned by <owner>; current owner is <caller>.` | The current agent id differs from the id that created the lock | Continue from the same harness agent, or use `--agent-id <owner>` for unsupported harness recovery |
 | `At least one lock id is required for refresh.` | `refresh`, `release`, or `git end` needs a lock id | `lockpick status --id-only` |
 | `Lock path must be repo-relative` | Absolute paths are rejected | `lockpick acquire path/from/repo/root --reason "<intent>"` |
 | `Lock TTL must be <= 1800000.` | The requested lease exceeds the configured maximum | `lockpick refresh <lock_id> --ttl-ms 600000` |
@@ -440,17 +436,18 @@ or a migration layer for old lock schemas. The lock record schema is current-ver
 
 ## FAQ
 
-### Can humans use it, or is this only for agents?
+### Is this only for agents?
 
-Humans can use the same commands. The useful contract is social and mechanical: reserve paths before
-editing, refresh while working, lock `@git/index` before staging, and release promptly.
+Lockpick is agent-first. A person can run the same commands for manual recovery or local debugging,
+but the default workflow assumes a coding harness supplies a stable agent id.
 
 ### How should agents identify themselves?
 
-Lockpick first checks `LOCKPICK_OWNER_SESSION` and `LOCKPICK_SESSION_ID`, then supported harness
-environment such as `CODEX_THREAD_ID` and `CLAUDE_CODE_SESSION_ID`. Without one of those, Lockpick
-falls back to a process-scoped id, which is fine for one command but awkward across multiple shell
-invocations.
+Lockpick checks supported harness identity first. Claude Code hooks can pass
+`LOCKPICK_HARNESS_AGENT_ID`; Codex uses `CODEX_THREAD_ID`; Claude Code falls back to
+`CLAUDE_CODE_SESSION_ID` when the hook is absent. Only unsupported harnesses or manual recovery
+need `--agent-id` or `LOCKPICK_AGENT_ID`. Without any stable source, Lockpick falls back to a
+process-scoped id.
 
 ### What happens in CI?
 

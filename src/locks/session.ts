@@ -4,21 +4,19 @@ import path from "node:path";
 import type { LockOwner, LockOwnerHarness, LockOwnerHarnessScope, SessionLiveness } from "./types";
 import { MAX_LOCK_TTL_MS } from "./types";
 
-export const DEFAULT_OWNER_ENV_KEYS = ["LOCKPICK_OWNER_SESSION", "LOCKPICK_SESSION_ID"] as const;
+export const DEFAULT_AGENT_ENV_KEYS = ["LOCKPICK_AGENT_ID"] as const;
 export const DEFAULT_OWNER_HARNESSES = ["codex", "claude-code"] as const;
 export type OwnerHarness = (typeof DEFAULT_OWNER_HARNESSES)[number];
+export const LOCKPICK_HARNESS_AGENT_ENV_KEY = "LOCKPICK_HARNESS_AGENT_ID";
 export const CODEX_OWNER_ENV_KEY = "CODEX_THREAD_ID";
 export const CLAUDE_CODE_SESSION_ENV_KEY = "CLAUDE_CODE_SESSION_ID";
-export const DEFAULT_SUPERVISOR_ENV_KEYS = ["LOCKPICK_SUPERVISOR_SESSION_ID"] as const;
-export const CODEX_SUPERVISOR_ENV_KEYS = ["CODEX_SUPERVISOR_THREAD_ID"] as const;
 
 export interface IdentifyOwnerOptions {
   cwd: string;
-  ownerSessionId?: string | null;
+  agentId?: string | null;
   env?: NodeJS.ProcessEnv;
   envKeys?: readonly string[];
   harnesses?: readonly OwnerHarness[];
-  supervisorEnvKeys?: readonly string[];
   fallbackPrefix?: string;
 }
 
@@ -27,28 +25,44 @@ export type SessionLivenessProbe = (
   now: Date,
 ) => Promise<SessionLiveness> | SessionLiveness;
 
-export function detectSessionId(
+export function detectAgentId(
   env: NodeJS.ProcessEnv = process.env,
-  envKeys: readonly string[] = DEFAULT_OWNER_ENV_KEYS,
-): { sessionId: string; source: string } | null {
+  envKeys: readonly string[] = DEFAULT_AGENT_ENV_KEYS,
+): { agentId: string; source: string } | null {
   for (const key of envKeys) {
     const value = env[key]?.trim();
-    if (value) return { sessionId: value, source: `env:${key}` };
+    if (value) return { agentId: value, source: `env:${key}` };
   }
   return null;
 }
 
-export function detectHarnessSessionId(
+export function detectHarnessAgentId(
   env: NodeJS.ProcessEnv = process.env,
   harnesses: readonly OwnerHarness[] = DEFAULT_OWNER_HARNESSES,
-): Pick<LockOwner, "sessionId" | "source" | "harness" | "harnessScope" | "rawSessionId"> | null {
+): Pick<LockOwner, "agentId" | "source" | "harness" | "harnessScope" | "rawSessionId"> | null {
+  const lockpickHarnessAgentId = env[LOCKPICK_HARNESS_AGENT_ENV_KEY]?.trim();
+  if (lockpickHarnessAgentId) {
+    const parsed = parseHarnessOwnerAgentId(lockpickHarnessAgentId);
+    const detected: Pick<
+      LockOwner,
+      "agentId" | "source" | "harness" | "harnessScope" | "rawSessionId"
+    > = {
+      agentId: lockpickHarnessAgentId,
+      source: `harness:lockpick:${LOCKPICK_HARNESS_AGENT_ENV_KEY}`,
+    };
+    if (parsed.harness) detected.harness = parsed.harness;
+    if (parsed.harnessScope) detected.harnessScope = parsed.harnessScope;
+    if (parsed.rawSessionId) detected.rawSessionId = parsed.rawSessionId;
+    return detected;
+  }
+
   for (const harness of harnesses) {
     switch (harness) {
       case "codex": {
         const value = env[CODEX_OWNER_ENV_KEY]?.trim();
         if (!value) break;
         return {
-          sessionId: `codex:${value}`,
+          agentId: `codex:${value}`,
           source: `harness:codex:${CODEX_OWNER_ENV_KEY}`,
           harness: "codex",
           harnessScope: "agent",
@@ -59,7 +73,7 @@ export function detectHarnessSessionId(
         const value = env[CLAUDE_CODE_SESSION_ENV_KEY]?.trim();
         if (!value) break;
         return {
-          sessionId: `claude-code:${value}`,
+          agentId: `claude-code:${value}`,
           source: `harness:claude-code:${CLAUDE_CODE_SESSION_ENV_KEY}`,
           harness: "claude-code",
           harnessScope: "session",
@@ -73,22 +87,20 @@ export function detectHarnessSessionId(
 
 export function identifyLockOwner(options: IdentifyOwnerOptions): LockOwner {
   const env = options.env ?? process.env;
-  const envKeys = options.envKeys ?? DEFAULT_OWNER_ENV_KEYS;
+  const envKeys = options.envKeys ?? DEFAULT_AGENT_ENV_KEYS;
   const harnesses = options.harnesses ?? DEFAULT_OWNER_HARNESSES;
-  const supervisorEnvKeys = options.supervisorEnvKeys ?? DEFAULT_SUPERVISOR_ENV_KEYS;
-  const explicit = options.ownerSessionId?.trim();
-  const detected = explicit
-    ? { sessionId: explicit, source: "explicit" }
-    : detectSessionId(env, envKeys);
-  const harnessDetected = detected ? null : detectHarnessSessionId(env, harnesses);
-  const fallbackSessionId = fallbackOwnerId(options.fallbackPrefix ?? "lockpick");
-  const resolved = detected ??
-    harnessDetected ?? { sessionId: fallbackSessionId, source: "fallback" };
-  const parsed = parseHarnessOwnerSessionId(resolved.sessionId);
-  const supervisorSessionId = detectSupervisorSessionId(env, supervisorEnvKeys);
+  const explicit = options.agentId?.trim();
+  const harnessDetected = detectHarnessAgentId(env, harnesses);
+  const detected = harnessDetected
+    ? null
+    : explicit
+      ? { agentId: explicit, source: "explicit" }
+      : detectAgentId(env, envKeys);
+  const fallbackAgentId = fallbackOwnerId(options.fallbackPrefix ?? "lockpick");
+  const resolved = harnessDetected ?? detected ?? { agentId: fallbackAgentId, source: "fallback" };
+  const parsed = parseHarnessOwnerAgentId(resolved.agentId);
   const owner: LockOwner = {
-    sessionId: resolved.sessionId,
-    supervisorSessionId,
+    agentId: resolved.agentId,
     hostname: os.hostname(),
     pid: process.pid,
     cwd: options.cwd,
@@ -100,7 +112,7 @@ export function identifyLockOwner(options: IdentifyOwnerOptions): LockOwner {
   if (harness) owner.harness = harness;
   if (harnessScope) owner.harnessScope = harnessScope;
   if (rawSessionId) owner.rawSessionId = rawSessionId;
-  if (parsed.agentId) owner.agentId = parsed.agentId;
+  if (parsed.harnessAgentId) owner.harnessAgentId = parsed.harnessAgentId;
   if (parsed.agentType) owner.agentType = parsed.agentType;
   return owner;
 }
@@ -113,13 +125,13 @@ export async function probeCodexSessionLiveness(
   owner: LockOwner,
   now: Date,
 ): Promise<SessionLiveness> {
-  const current = detectHarnessSessionId(process.env, ["codex"]);
-  const sessionId = lockOwnerSessionId(owner);
-  if (current && current.sessionId === sessionId) {
+  const current = detectHarnessAgentId(process.env, ["codex"]);
+  const agentId = lockOwnerAgentId(owner);
+  if (current && current.agentId === agentId) {
     return { status: "live", evidence: "owner matches current CODEX_THREAD_ID" };
   }
-  if (sessionId.startsWith("unknown:")) {
-    return { status: "unknown", evidence: "owner session id was not available" };
+  if (agentId.startsWith("unknown:")) {
+    return { status: "unknown", evidence: "owner agent id was not available" };
   }
 
   const indexPath = path.join(codexHome(), "session_index.jsonl");
@@ -130,7 +142,7 @@ export async function probeCodexSessionLiveness(
     return { status: "unknown", evidence: `could not read ${indexPath}` };
   }
 
-  const rawSessionId = owner.rawSessionId ?? sessionId.replace(/^codex:/, "");
+  const rawSessionId = owner.rawSessionId ?? agentId.replace(/^codex:/, "");
   const entry = findSessionIndexEntry(raw, rawSessionId);
   if (!entry) return { status: "dead", evidence: `session missing from ${indexPath}` };
 
@@ -146,33 +158,22 @@ export async function probeCodexSessionLiveness(
   return { status: "dead", evidence: `session last updated ${Math.max(0, ageMs)}ms ago` };
 }
 
-export function lockOwnerSessionId(owner: LockOwner): string {
-  return owner.sessionId;
+export function lockOwnerAgentId(owner: LockOwner): string {
+  return owner.agentId;
 }
 
 export function lockOwnerSource(owner: LockOwner): string | null {
   return owner.source;
 }
 
-function detectSupervisorSessionId(
-  env: NodeJS.ProcessEnv,
-  envKeys: readonly string[],
-): string | null {
-  for (const key of envKeys) {
-    const value = env[key]?.trim();
-    if (value) return value;
-  }
-  return null;
-}
-
-function parseHarnessOwnerSessionId(sessionId: string): {
+function parseHarnessOwnerAgentId(agentId: string): {
   harness?: LockOwnerHarness;
   harnessScope?: LockOwnerHarnessScope;
   rawSessionId?: string;
-  agentId?: string;
+  harnessAgentId?: string;
   agentType?: string;
 } {
-  const codex = sessionId.match(/^codex:(.+)$/);
+  const codex = agentId.match(/^codex:(.+)$/);
   if (codex?.[1]) {
     return {
       harness: "codex",
@@ -181,17 +182,17 @@ function parseHarnessOwnerSessionId(sessionId: string): {
     };
   }
 
-  const claudeAgent = sessionId.match(/^claude-code:([^:]+):agent:(.+)$/);
+  const claudeAgent = agentId.match(/^claude-code:([^:]+):agent:(.+)$/);
   if (claudeAgent?.[1] && claudeAgent[2]) {
     return {
       harness: "claude-code",
       harnessScope: "agent",
       rawSessionId: claudeAgent[1],
-      agentId: claudeAgent[2],
+      harnessAgentId: claudeAgent[2],
     };
   }
 
-  const claudeMain = sessionId.match(/^claude-code:([^:]+):main$/);
+  const claudeMain = agentId.match(/^claude-code:([^:]+):main$/);
   if (claudeMain?.[1]) {
     return {
       harness: "claude-code",
@@ -200,7 +201,7 @@ function parseHarnessOwnerSessionId(sessionId: string): {
     };
   }
 
-  const claudeSession = sessionId.match(/^claude-code:(.+)$/);
+  const claudeSession = agentId.match(/^claude-code:(.+)$/);
   if (claudeSession?.[1]) {
     return {
       harness: "claude-code",
@@ -209,7 +210,7 @@ function parseHarnessOwnerSessionId(sessionId: string): {
     };
   }
 
-  return sessionId.startsWith("lockpick:") ? { harness: "lockpick", harnessScope: "fallback" } : {};
+  return agentId.startsWith("lockpick:") ? { harness: "lockpick", harnessScope: "fallback" } : {};
 }
 
 function codexHome(): string {

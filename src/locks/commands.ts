@@ -2,7 +2,7 @@ import { loadLockpickConfig, type ResolvedLockpickConfig, renderLockpickCommand 
 import { FileLockRegistry, type FileLockRegistryOptions } from "./registry";
 import {
   createUnknownSessionProbe,
-  lockOwnerSessionId,
+  lockOwnerAgentId,
   lockOwnerSource,
   probeCodexSessionLiveness,
 } from "./session";
@@ -39,7 +39,6 @@ export async function executeLockCommand(
     lockRoot: config.lockRoot,
     ownerEnvKeys: config.owner.envKeys,
     ownerHarnesses: config.owner.harnesses,
-    supervisorEnvKeys: config.owner.supervisorEnvKeys,
     fallbackOwnerPrefix: config.owner.fallbackPrefix,
     defaultTtlMs: config.defaults.ttlMs,
     maxTtlMs: config.defaults.maxTtlMs,
@@ -57,7 +56,7 @@ export async function executeLockCommand(
           globs: command.globs,
           reason: command.reason,
           ttlMs: command.ttlMs,
-          ownerSessionId: command.ownerSession,
+          agentId: command.agentId,
         }),
       );
       break;
@@ -68,18 +67,18 @@ export async function executeLockCommand(
           paths: command.paths,
           globs: command.globs,
           ttlMs: command.ttlMs,
-          ownerSessionId: command.ownerSession,
+          agentId: command.agentId,
         }),
       );
       break;
     case "refresh":
       for (const lockId of requireLockIds(command.lockIds, "refresh")) {
-        results.push(await registry.refresh(lockId, command.ttlMs, command.ownerSession));
+        results.push(await registry.refresh(lockId, command.ttlMs, command.agentId));
       }
       break;
     case "release":
       for (const lockId of requireLockIds(command.lockIds, "release")) {
-        results.push(await registry.release(lockId, command.ownerSession));
+        results.push(await registry.release(lockId, command.agentId));
       }
       break;
     case "status":
@@ -89,27 +88,27 @@ export async function executeLockCommand(
       results.push(await registry.prune(command.dryRun));
       break;
     case "identify":
-      results.push(registry.identify(command.ownerSession));
+      results.push(registry.identify(command.agentId));
       break;
     case "git-begin":
       for (const lockId of command.refreshLockIds) {
-        results.push(await registry.refresh(lockId, command.ttlMs, command.ownerSession));
+        results.push(await registry.refresh(lockId, command.ttlMs, command.agentId));
       }
       results.push(
         await registry.acquire({
           includeGitIndex: true,
           reason: command.reason,
           ttlMs: command.ttlMs,
-          ownerSessionId: command.ownerSession,
+          agentId: command.agentId,
         }),
       );
       break;
     case "git-end":
       for (const lockId of requireLockIds(command.lockIds, "git end")) {
-        results.push(await registry.release(lockId, command.ownerSession));
+        results.push(await registry.release(lockId, command.agentId));
       }
       for (const lockId of command.releaseLockIds) {
-        results.push(await registry.release(lockId, command.ownerSession));
+        results.push(await registry.release(lockId, command.agentId));
       }
       break;
   }
@@ -171,7 +170,7 @@ function compactLockJson(result: LockOperationResult): Record<string, unknown> {
         suggested_action: result.suggestedAction,
         conflicts: (result.conflicts ?? []).map((conflict) => ({
           lock_id: conflict.lock.lockId,
-          owner: lockOwnerSessionId(conflict.lock.owner),
+          owner: lockOwnerAgentId(conflict.lock.owner),
           reason: conflict.lock.reason,
           status: conflict.status,
           resources: conflict.resources.map((resource) => resource.value),
@@ -196,7 +195,7 @@ function compactLockJson(result: LockOperationResult): Record<string, unknown> {
       return {
         kind: "identified",
         exitCode: result.exitCode,
-        session_id: result.owner ? lockOwnerSessionId(result.owner) : null,
+        agent_id: result.owner ? lockOwnerAgentId(result.owner) : null,
         source: result.owner ? lockOwnerSource(result.owner) : null,
         harness: result.owner?.harness ?? null,
         harness_scope: result.owner?.harnessScope ?? null,
@@ -260,9 +259,9 @@ export function renderLockResult(
         ? `prunable locks: ${result.pruned?.length ?? 0}`
         : `pruned locks: ${result.pruned?.length ?? 0}`;
     case "identified":
-      if (!verbose) return `owner session: ${ownerSessionText(result.owner)}`;
+      if (!verbose) return `agent id: ${agentIdText(result.owner)}`;
       return [
-        `owner session: ${ownerSessionText(result.owner)}`,
+        `agent id: ${agentIdText(result.owner)}`,
         `source: ${result.owner ? (lockOwnerSource(result.owner) ?? "<unknown>") : "<unknown>"}`,
         `harness: ${result.owner?.harness ?? "<none>"}`,
         `harness scope: ${result.owner?.harnessScope ?? "<none>"}`,
@@ -296,7 +295,7 @@ function renderConflict(
       : "work on unrelated unlocked files, then retry";
   return [
     `lock conflict: ${resourceText}`,
-    `held by: ${lockOwnerSessionId(first.lock.owner)}`,
+    `held by: ${lockOwnerAgentId(first.lock.owner)}`,
     `reason: ${first.lock.reason}`,
     `status: ${first.status}, ${leaseText}`,
     `next: ${next}`,
@@ -310,7 +309,7 @@ function renderStatus(locks: ClassifiedLock[]): string {
       [
         `lock: ${item.lock.lockId}`,
         `status: ${item.status}`,
-        `owner: ${lockOwnerSessionId(item.lock.owner)}`,
+        `owner: ${lockOwnerAgentId(item.lock.owner)}`,
         `reason: ${item.lock.reason}`,
         ...renderResources(item.lock.resources),
       ].join("\n"),
@@ -318,8 +317,8 @@ function renderStatus(locks: ClassifiedLock[]): string {
     .join("\n\n");
 }
 
-function ownerSessionText(owner: LockOperationResult["owner"]): string {
-  return owner ? lockOwnerSessionId(owner) : "<unknown>";
+function agentIdText(owner: LockOperationResult["owner"]): string {
+  return owner ? lockOwnerAgentId(owner) : "<unknown>";
 }
 
 function renderStatusSummary(locks: ClassifiedLock[]): string {

@@ -10,7 +10,7 @@ import {
   createUnknownSessionProbe,
   type IdentifyOwnerOptions,
   identifyLockOwner,
-  lockOwnerSessionId,
+  lockOwnerAgentId,
   type OwnerHarness,
   type SessionLivenessProbe,
 } from "./session";
@@ -38,7 +38,6 @@ export interface FileLockRegistryOptions {
   env?: NodeJS.ProcessEnv;
   ownerEnvKeys?: readonly string[];
   ownerHarnesses?: readonly OwnerHarness[];
-  supervisorEnvKeys?: readonly string[];
   fallbackOwnerPrefix?: string;
   defaultTtlMs?: number;
   maxTtlMs?: number;
@@ -54,13 +53,13 @@ export interface LockResourceRequest {
 export interface AcquireLockParams extends LockResourceRequest {
   reason: string;
   ttlMs?: number | null;
-  ownerSessionId?: string | null;
+  agentId?: string | null;
 }
 
 export interface ExpandLockParams extends LockResourceRequest {
   lockId: string;
   ttlMs?: number | null;
-  ownerSessionId?: string | null;
+  agentId?: string | null;
 }
 
 export class FileLockRegistry {
@@ -74,7 +73,6 @@ export class FileLockRegistry {
   private readonly env: NodeJS.ProcessEnv;
   private readonly ownerEnvKeys: readonly string[] | undefined;
   private readonly ownerHarnesses: readonly OwnerHarness[] | undefined;
-  private readonly supervisorEnvKeys: readonly string[] | undefined;
   private readonly fallbackOwnerPrefix: string;
   private readonly defaultTtlMs: number;
   private readonly maxTtlMs: number;
@@ -93,7 +91,6 @@ export class FileLockRegistry {
     this.env = options.env ?? process.env;
     this.ownerEnvKeys = options.ownerEnvKeys;
     this.ownerHarnesses = options.ownerHarnesses;
-    this.supervisorEnvKeys = options.supervisorEnvKeys;
     this.fallbackOwnerPrefix = options.fallbackOwnerPrefix ?? "lockpick";
     this.defaultTtlMs = options.defaultTtlMs ?? DEFAULT_LOCK_TTL_MS;
     this.maxTtlMs = options.maxTtlMs ?? MAX_LOCK_TTL_MS;
@@ -101,12 +98,12 @@ export class FileLockRegistry {
       options.unknownLivenessGraceMs ?? DEFAULT_UNKNOWN_LIVENESS_GRACE_MS;
   }
 
-  identify(ownerSessionId?: string | null): LockOperationResult {
+  identify(agentId?: string | null): LockOperationResult {
     return {
       kind: "identified",
       exitCode: 0,
       suggestedAction: "identified",
-      owner: this.identifyOwner(ownerSessionId ?? null),
+      owner: this.identifyOwner(agentId ?? null),
     };
   }
 
@@ -118,7 +115,7 @@ export class FileLockRegistry {
     const reason = normalizedReason(params.reason);
     const ttlMs = this.normalizeTtl(params.ttlMs);
     const now = this.now();
-    const owner = this.identifyOwner(params.ownerSessionId ?? null);
+    const owner = this.identifyOwner(params.agentId ?? null);
 
     return this.withMutex(async () => {
       const locks = await this.readActiveLocks();
@@ -162,7 +159,7 @@ export class FileLockRegistry {
       const locks = await this.readActiveLocks();
       const existing = locks.find((lock) => lock.lockId === params.lockId);
       if (!existing) throw new LockCommandError(`Lock not found: ${params.lockId}`, 2);
-      this.assertLockOwner(existing, params.ownerSessionId ?? null);
+      this.assertLockOwner(existing, params.agentId ?? null);
 
       const resources = unionResources(existing.resources, requested);
       const conflicts = await this.findConflicts(
@@ -195,12 +192,12 @@ export class FileLockRegistry {
   async refresh(
     lockId: string,
     ttlMsInput?: number | null,
-    ownerSessionId?: string | null,
+    agentId?: string | null,
   ): Promise<LockOperationResult> {
     const now = this.now();
     return this.withMutex(async () => {
       const lock = await this.requireLock(lockId);
-      this.assertLockOwner(lock, ownerSessionId ?? null);
+      this.assertLockOwner(lock, agentId ?? null);
       const ttlMs =
         ttlMsInput === null || ttlMsInput === undefined
           ? lock.ttlMs
@@ -222,10 +219,10 @@ export class FileLockRegistry {
     });
   }
 
-  async release(lockId: string, ownerSessionId?: string | null): Promise<LockOperationResult> {
+  async release(lockId: string, agentId?: string | null): Promise<LockOperationResult> {
     return this.withMutex(async () => {
       const lock = await this.requireLock(lockId);
-      this.assertLockOwner(lock, ownerSessionId ?? null);
+      this.assertLockOwner(lock, agentId ?? null);
       await fs.rm(this.lockPath(lockId), { force: true });
       await this.appendEvent("released", lock, {});
       return {
@@ -286,16 +283,15 @@ export class FileLockRegistry {
     });
   }
 
-  private identifyOwner(ownerSessionId: string | null) {
+  private identifyOwner(agentId: string | null) {
     const options: IdentifyOwnerOptions = {
       cwd: this.cwd,
-      ownerSessionId,
+      agentId,
       env: this.env,
       fallbackPrefix: this.fallbackOwnerPrefix,
     };
     if (this.ownerEnvKeys) options.envKeys = this.ownerEnvKeys;
     if (this.ownerHarnesses) options.harnesses = this.ownerHarnesses;
-    if (this.supervisorEnvKeys) options.supervisorEnvKeys = this.supervisorEnvKeys;
     return identifyLockOwner(options);
   }
 
@@ -455,10 +451,10 @@ export class FileLockRegistry {
     return value;
   }
 
-  private assertLockOwner(lock: FileLockRecord, ownerSessionId: string | null | undefined): void {
-    const caller = this.identifyOwner(ownerSessionId ?? null);
-    const callerSessionId = lockOwnerSessionId(caller);
-    const lockOwnerId = lockOwnerSessionId(lock.owner);
+  private assertLockOwner(lock: FileLockRecord, agentId: string | null | undefined): void {
+    const caller = this.identifyOwner(agentId ?? null);
+    const callerSessionId = lockOwnerAgentId(caller);
+    const lockOwnerId = lockOwnerAgentId(lock.owner);
     if (callerSessionId === lockOwnerId) return;
     throw new LockCommandError(
       `Lock ${lock.lockId} is owned by ${lockOwnerId}; current owner is ${callerSessionId}.`,

@@ -3,10 +3,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { pathExists } from "./io";
 import {
-  CODEX_SUPERVISOR_ENV_KEYS,
-  DEFAULT_OWNER_ENV_KEYS,
+  DEFAULT_AGENT_ENV_KEYS,
   DEFAULT_OWNER_HARNESSES,
-  DEFAULT_SUPERVISOR_ENV_KEYS,
   type OwnerHarness,
 } from "./locks/session";
 import {
@@ -29,7 +27,6 @@ export interface LockpickCommandConfig {
 
 export interface LockpickOwnerConfig {
   envKeys?: string[];
-  supervisorEnvKeys?: string[];
   harnesses?: OwnerHarness[];
   fallbackPrefix?: string;
 }
@@ -71,7 +68,6 @@ export interface ResolvedCommandConfig {
 export interface ResolvedOwnerConfig {
   envKeys: string[];
   harnesses: OwnerHarness[];
-  supervisorEnvKeys: string[];
   fallbackPrefix: string;
 }
 
@@ -189,14 +185,11 @@ async function loadConfigFile(
 }
 
 function resolveOwnerConfig(config: LockpickOwnerConfig | undefined): ResolvedOwnerConfig {
-  const envKeys = [...(config?.envKeys ?? DEFAULT_OWNER_ENV_KEYS)];
+  const envKeys = [...(config?.envKeys ?? DEFAULT_AGENT_ENV_KEYS)];
   const harnesses = [...(config?.harnesses ?? DEFAULT_OWNER_HARNESSES)];
-  const supervisorEnvKeys = [...(config?.supervisorEnvKeys ?? DEFAULT_SUPERVISOR_ENV_KEYS)];
-  if (harnesses.includes("codex")) supervisorEnvKeys.push(...CODEX_SUPERVISOR_ENV_KEYS);
   return {
     envKeys: dedupeStrings(envKeys),
     harnesses: dedupeHarnesses(harnesses),
-    supervisorEnvKeys: dedupeStrings(supervisorEnvKeys),
     fallbackPrefix: config?.fallbackPrefix?.trim() || "lockpick",
   };
 }

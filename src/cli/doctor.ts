@@ -7,7 +7,7 @@ import {
   CLAUDE_CODE_SESSION_ENV_KEY,
   CODEX_OWNER_ENV_KEY,
   identifyLockOwner,
-  lockOwnerSessionId,
+  lockOwnerAgentId,
 } from "../locks/session";
 import { REGISTRY_MUTEX_STALE_MS } from "../locks/types";
 
@@ -155,14 +155,14 @@ async function harnessChecks(root: string, config: ResolvedLockpickConfig): Prom
   const checks: DoctorCheck[] = [];
   const claudeSession = process.env[CLAUDE_CODE_SESSION_ENV_KEY]?.trim();
   if (claudeSession) {
-    const hookPath = path.join(root, ".claude/hooks/lockpick-owner-env.mjs");
+    const hookPath = path.join(root, ".claude/hooks/lockpick-agent-env.mjs");
     const hookExists = await pathExists(hookPath);
     const hookCheck: DoctorCheck = {
-      id: "claude_owner_hook",
+      id: "claude_agent_hook",
       status: hookExists ? "ok" : "warn",
       message: hookExists
-        ? "Claude Code owner hook exists"
-        : "Claude Code owner hook missing; subagents will share session-scope ownership",
+        ? "Claude Code agent hook exists"
+        : "Claude Code agent hook missing; subagents will share session-scope locks",
     };
     if (!hookExists) {
       hookCheck.next = renderLockpickCommand(config, ["init", "--harness", "claude-code"]);
@@ -174,21 +174,20 @@ async function harnessChecks(root: string, config: ResolvedLockpickConfig): Prom
       env: process.env,
       envKeys: config.owner.envKeys,
       harnesses: config.owner.harnesses,
-      supervisorEnvKeys: config.owner.supervisorEnvKeys,
       fallbackPrefix: config.owner.fallbackPrefix,
     });
     const sessionScope = owner.harness === "claude-code" && owner.harnessScope === "session";
-    const ownerScopeCheck: DoctorCheck = {
-      id: "owner_session_scope",
+    const agentScopeCheck: DoctorCheck = {
+      id: "agent_session_scope",
       status: sessionScope ? "warn" : "ok",
       message: sessionScope
-        ? `owner ${lockOwnerSessionId(owner)} is Claude session-scoped, not agent-scoped`
-        : "owner identity is agent-scoped or explicitly configured",
+        ? `agent ${lockOwnerAgentId(owner)} is Claude session-scoped, not agent-scoped`
+        : "agent identity is harness-scoped or explicitly configured",
     };
     if (sessionScope) {
-      ownerScopeCheck.next = renderLockpickCommand(config, ["init", "--harness", "claude-code"]);
+      agentScopeCheck.next = renderLockpickCommand(config, ["init", "--harness", "claude-code"]);
     }
-    checks.push(ownerScopeCheck);
+    checks.push(agentScopeCheck);
   }
 
   const codexLikely =
@@ -199,7 +198,7 @@ async function harnessChecks(root: string, config: ResolvedLockpickConfig): Prom
     checks.push({
       id: "codex_thread_id",
       status: "warn",
-      message: `${CODEX_OWNER_ENV_KEY} is unavailable; Codex owner detection will fall back`,
+      message: `${CODEX_OWNER_ENV_KEY} is unavailable; Codex agent detection will fall back`,
     });
   }
 

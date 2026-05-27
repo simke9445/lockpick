@@ -29,7 +29,7 @@ interface LockAcquireOptions extends LockOutputOptions {
   glob?: string[];
   reason: string;
   ttlMs?: number;
-  ownerSession?: string;
+  agentId?: string;
 }
 
 interface LockExpandOptions extends LockOutputOptions {
@@ -37,18 +37,18 @@ interface LockExpandOptions extends LockOutputOptions {
   glob?: string[];
   reason?: string;
   ttlMs?: number;
-  ownerSession?: string;
+  agentId?: string;
 }
 
 interface LockRefreshOptions extends LockOutputOptions {
   lock?: string[];
   ttlMs?: number;
-  ownerSession?: string;
+  agentId?: string;
 }
 
 interface LockReleaseOptions extends LockOutputOptions {
   lock?: string[];
-  ownerSession?: string;
+  agentId?: string;
 }
 
 interface LockStatusOptions extends LockOutputOptions {
@@ -56,7 +56,7 @@ interface LockStatusOptions extends LockOutputOptions {
 }
 
 interface LockIdentifyOptions extends LockOutputOptions {
-  ownerSession?: string;
+  agentId?: string;
 }
 
 interface LockPruneOptions extends LockOutputOptions {
@@ -67,13 +67,13 @@ interface LockGitBeginOptions extends LockOutputOptions {
   reason: string;
   refreshLock?: string[];
   ttlMs?: number;
-  ownerSession?: string;
+  agentId?: string;
 }
 
 interface LockGitEndOptions extends LockOutputOptions {
   lock?: string[];
   releaseLock?: string[];
-  ownerSession?: string;
+  agentId?: string;
 }
 
 interface InitCliOptions {
@@ -142,7 +142,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
       .option("--glob <pattern>", "Repo-relative glob; repeatable.", collectValues, [])
       .requiredOption("--reason <text>", "Human-readable lock intent.")
       .option("--ttl-ms <n>", "Lease length in milliseconds.", parseInteger)
-      .option("--owner-session <id>", "Explicit owner session id.")
+      .option("--agent-id <id>", "Explicit agent id for unsupported harness or recovery.")
       .allowExcessArguments(false),
   ).action((paths: string[], _options: LockAcquireOptions, command: Command) => {
     const options = command.opts<LockAcquireOptions>();
@@ -155,7 +155,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
           globs: options.glob ?? [],
           reason: options.reason,
           ttlMs: options.ttlMs ?? null,
-          ownerSession: options.ownerSession ?? null,
+          agentId: options.agentId ?? null,
           json: Boolean(options.json),
           idOnly: Boolean(options.idOnly),
         },
@@ -173,7 +173,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
       .option("--glob <pattern>", "Repo-relative glob; repeatable.", collectValues, [])
       .option("--reason <text>", "Ignored note accepted for acquire/expand command symmetry.")
       .option("--ttl-ms <n>", "Lease length in milliseconds.", parseInteger)
-      .option("--owner-session <id>", "Explicit owner session id.")
+      .option("--agent-id <id>", "Explicit agent id for unsupported harness or recovery.")
       .allowExcessArguments(false),
   ).action((paths: string[], _options: LockExpandOptions, command: Command) => {
     const options = command.opts<LockExpandOptions>();
@@ -186,7 +186,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
           paths,
           globs: options.glob ?? [],
           ttlMs: options.ttlMs ?? null,
-          ownerSession: options.ownerSession ?? null,
+          agentId: options.agentId ?? null,
           json: Boolean(options.json),
           idOnly: Boolean(options.idOnly),
         },
@@ -202,7 +202,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
       .argument("[locks...]", "Lock ids; equivalent to repeatable --lock.")
       .option("--lock <lock_id>", "Lock id; repeatable.", collectValues, [])
       .option("--ttl-ms <n>", "Lease length in milliseconds.", parseInteger)
-      .option("--owner-session <id>", "Explicit owner session id.")
+      .option("--agent-id <id>", "Explicit agent id for unsupported harness or recovery.")
       .allowExcessArguments(false),
   ).action((locks: string[], _options: LockRefreshOptions, command: Command) => {
     const options = command.opts<LockRefreshOptions>();
@@ -213,7 +213,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
           name: "refresh",
           lockIds: mergeLockIds(options.lock, locks),
           ttlMs: options.ttlMs ?? null,
-          ownerSession: options.ownerSession ?? null,
+          agentId: options.agentId ?? null,
           json: Boolean(options.json),
           idOnly: Boolean(options.idOnly),
         },
@@ -228,7 +228,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
       .description("Release a held lock.")
       .argument("[locks...]", "Lock ids; equivalent to repeatable --lock.")
       .option("--lock <lock_id>", "Lock id; repeatable.", collectValues, [])
-      .option("--owner-session <id>", "Explicit owner session id.")
+      .option("--agent-id <id>", "Explicit agent id for unsupported harness or recovery.")
       .allowExcessArguments(false),
   ).action((locks: string[], _options: LockReleaseOptions, command: Command) => {
     const options = command.opts<LockReleaseOptions>();
@@ -238,7 +238,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
         {
           name: "release",
           lockIds: mergeLockIds(options.lock, locks),
-          ownerSession: options.ownerSession ?? null,
+          agentId: options.agentId ?? null,
           json: Boolean(options.json),
           idOnly: Boolean(options.idOnly),
         },
@@ -296,8 +296,8 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
   addLockOutputOptions(
     program
       .command("identify")
-      .description("Show detected lock owner identity.")
-      .option("--owner-session <id>", "Explicit owner session id.")
+      .description("Show detected lock agent identity.")
+      .option("--agent-id <id>", "Explicit agent id for unsupported harness or recovery.")
       .allowExcessArguments(false),
   ).action((_options: LockIdentifyOptions, command: Command) => {
     const options = command.opts<LockIdentifyOptions>();
@@ -313,7 +313,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
       command: withLockVerbose(
         {
           name: "identify",
-          ownerSession: options.ownerSession ?? null,
+          agentId: options.agentId ?? null,
           json: Boolean(options.json),
           idOnly: Boolean(options.idOnly),
         },
@@ -335,7 +335,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
         [],
       )
       .option("--ttl-ms <n>", "Lease length in milliseconds.", parseInteger)
-      .option("--owner-session <id>", "Explicit owner session id.")
+      .option("--agent-id <id>", "Explicit agent id for unsupported harness or recovery.")
       .allowExcessArguments(false),
   ).action((_options: LockGitBeginOptions, command: Command) => {
     const options = command.opts<LockGitBeginOptions>();
@@ -346,7 +346,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
           name: "git-begin",
           reason: options.reason,
           ttlMs: options.ttlMs ?? null,
-          ownerSession: options.ownerSession ?? null,
+          agentId: options.agentId ?? null,
           refreshLockIds: options.refreshLock ?? [],
           json: Boolean(options.json),
           idOnly: Boolean(options.idOnly),
@@ -368,7 +368,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
         collectValues,
         [],
       )
-      .option("--owner-session <id>", "Explicit owner session id.")
+      .option("--agent-id <id>", "Explicit agent id for unsupported harness or recovery.")
       .allowExcessArguments(false),
   ).action((locks: string[], _options: LockGitEndOptions, command: Command) => {
     const options = command.opts<LockGitEndOptions>();
@@ -379,7 +379,7 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
           name: "git-end",
           lockIds: mergeLockIds(options.lock, locks),
           releaseLockIds: options.releaseLock ?? [],
-          ownerSession: options.ownerSession ?? null,
+          agentId: options.agentId ?? null,
           json: Boolean(options.json),
           idOnly: Boolean(options.idOnly),
         },

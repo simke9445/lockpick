@@ -15,8 +15,7 @@ export interface LockResource {
 }
 
 export interface LockOwner {
-  sessionId: string;
-  supervisorSessionId: string | null;
+  agentId: string;
   hostname: string;
   pid: number;
   cwd: string;
@@ -24,7 +23,7 @@ export interface LockOwner {
   harness?: LockOwnerHarness;
   harnessScope?: LockOwnerHarnessScope;
   rawSessionId?: string;
-  agentId?: string;
+  harnessAgentId?: string;
   agentType?: string;
 }
 
@@ -107,7 +106,7 @@ export type LockCommand =
       globs: string[];
       reason: string;
       ttlMs: number | null;
-      ownerSession: string | null;
+      agentId: string | null;
     } & LockCommandOutputOptions)
   | ({
       name: "expand";
@@ -115,18 +114,18 @@ export type LockCommand =
       paths: string[];
       globs: string[];
       ttlMs: number | null;
-      ownerSession: string | null;
+      agentId: string | null;
     } & LockCommandOutputOptions)
   | ({
       name: "refresh";
       lockIds: string[];
       ttlMs: number | null;
-      ownerSession: string | null;
+      agentId: string | null;
     } & LockCommandOutputOptions)
   | ({
       name: "release";
       lockIds: string[];
-      ownerSession: string | null;
+      agentId: string | null;
     } & LockCommandOutputOptions)
   | ({
       name: "status";
@@ -134,19 +133,19 @@ export type LockCommand =
       globs: string[];
     } & LockCommandOutputOptions)
   | ({ name: "prune"; dryRun: boolean } & LockCommandOutputOptions)
-  | ({ name: "identify"; ownerSession: string | null } & LockCommandOutputOptions)
+  | ({ name: "identify"; agentId: string | null } & LockCommandOutputOptions)
   | ({
       name: "git-begin";
       reason: string;
       ttlMs: number | null;
-      ownerSession: string | null;
+      agentId: string | null;
       refreshLockIds: string[];
     } & LockCommandOutputOptions)
   | ({
       name: "git-end";
       lockIds: string[];
       releaseLockIds: string[];
-      ownerSession: string | null;
+      agentId: string | null;
     } & LockCommandOutputOptions);
 
 export class LockCommandError extends Error {

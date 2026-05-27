@@ -6,7 +6,7 @@ import {
   executeLockCommand,
   FileLockRegistry,
   type LockOwner,
-  lockOwnerSessionId,
+  lockOwnerAgentId,
   lockOwnerSource,
   normalizeLockResources,
   renderLockResult,
@@ -81,7 +81,7 @@ test("acquire defaults to .lockpick/locks and reports overlapping conflicts", as
     const acquired = await registry.acquire({
       paths: ["src/locks/registry.ts"],
       reason: "edit registry",
-      ownerSessionId: "session-a",
+      agentId: "session-a",
     });
     expect(acquired.exitCode).toBe(0);
     expect(acquired.lock?.resources).toEqual([{ kind: "path", value: "src/locks/registry.ts" }]);
@@ -90,7 +90,7 @@ test("acquire defaults to .lockpick/locks and reports overlapping conflicts", as
     const conflict = await registry.acquire({
       globs: ["src/**/*.ts"],
       reason: "format src",
-      ownerSessionId: "session-b",
+      agentId: "session-b",
     });
     expect(conflict.exitCode).toBe(3);
     expect(conflict.suggestedAction).toBe("retry_later");
@@ -108,14 +108,14 @@ test("expand is atomic when the requested resource conflicts", async () => {
     const first = await registry.acquire({
       paths: ["src/a.ts"],
       reason: "edit a",
-      ownerSessionId: "session-a",
+      agentId: "session-a",
     });
-    await registry.acquire({ paths: ["src/b.ts"], reason: "edit b", ownerSessionId: "session-b" });
+    await registry.acquire({ paths: ["src/b.ts"], reason: "edit b", agentId: "session-b" });
 
     const expanded = await registry.expand({
       lockId: first.lock?.lockId ?? "",
       paths: ["src/b.ts"],
-      ownerSessionId: "session-a",
+      agentId: "session-a",
     });
     expect(expanded.exitCode).toBe(3);
 
@@ -124,13 +124,13 @@ test("expand is atomic when the requested resource conflicts", async () => {
   });
 });
 
-test("refresh, release, and expand require the owning session", async () => {
+test("refresh, release, and expand require the owning agent id", async () => {
   await withWorkspace(async (workspace) => {
     const registry = testRegistry(workspace, new Date("2026-05-04T10:00:00Z"));
     const acquired = await registry.acquire({
       paths: ["src/locks/registry.ts"],
       reason: "edit registry",
-      ownerSessionId: "session-a",
+      agentId: "session-a",
     });
     const lockId = acquired.lock?.lockId ?? "";
 
@@ -138,7 +138,7 @@ test("refresh, release, and expand require the owning session", async () => {
       "is owned by session-a",
     );
     await expect(
-      registry.expand({ lockId, paths: ["src/locks/types.ts"], ownerSessionId: "session-b" }),
+      registry.expand({ lockId, paths: ["src/locks/types.ts"], agentId: "session-b" }),
     ).rejects.toThrow("is owned by session-a");
     await expect(registry.release(lockId, "session-b")).rejects.toThrow("is owned by session-a");
 
@@ -163,7 +163,7 @@ test("unknown liveness does not make expired sessions permanent", async () => {
       paths: ["stale.ts"],
       reason: "owner disappeared",
       ttlMs: 1000,
-      ownerSessionId: "missing-session",
+      agentId: "missing-session",
     });
     now = new Date("2026-05-04T10:00:02Z");
     expect((await registry.status()).locks?.[0]?.status).toBe("expired-unknown");
@@ -181,17 +181,17 @@ test("@git/index conflicts only with another git lock", async () => {
     const git = await registry.acquire({
       includeGitIndex: true,
       reason: "commit",
-      ownerSessionId: "session-a",
+      agentId: "session-a",
     });
     const file = await registry.acquire({
       paths: ["src/unrelated.ts"],
       reason: "edit file",
-      ownerSessionId: "session-b",
+      agentId: "session-b",
     });
     const secondGit = await registry.acquire({
       includeGitIndex: true,
       reason: "commit again",
-      ownerSessionId: "session-c",
+      agentId: "session-c",
     });
 
     expect(git.exitCode).toBe(0);
@@ -200,37 +200,44 @@ test("@git/index conflicts only with another git lock", async () => {
   });
 });
 
-test("owner detection supports explicit, configured env, and fallback session ids", async () => {
+test("owner detection prefers harness identity before explicit, env, and fallback agent ids", async () => {
   await withWorkspace(async (workspace) => {
     const harnessEnv = {
       CODEX_THREAD_ID: "codex-thread",
       CLAUDE_CODE_SESSION_ID: "claude-session",
     } as NodeJS.ProcessEnv;
-    const explicit = new FileLockRegistry({ cwd: workspace, env: harnessEnv }).identify(
+    const harnessWins = new FileLockRegistry({ cwd: workspace, env: harnessEnv }).identify(
       "explicit-session",
     );
-    expect(explicit.owner ? lockOwnerSessionId(explicit.owner) : null).toBe("explicit-session");
+    expect(harnessWins.owner ? lockOwnerAgentId(harnessWins.owner) : null).toBe(
+      "codex:codex-thread",
+    );
+    expect(harnessWins.owner ? lockOwnerSource(harnessWins.owner) : null).toBe(
+      "harness:codex:CODEX_THREAD_ID",
+    );
+
+    const explicit = new FileLockRegistry({ cwd: workspace, env: {} }).identify("explicit-session");
+    expect(explicit.owner ? lockOwnerAgentId(explicit.owner) : null).toBe("explicit-session");
     expect(explicit.owner ? lockOwnerSource(explicit.owner) : null).toBe("explicit");
 
     const env = {
-      CUSTOM_LOCK_OWNER: "env-session",
-      CODEX_THREAD_ID: "codex-thread",
+      CUSTOM_LOCK_AGENT: "env-agent",
     } as NodeJS.ProcessEnv;
     const configured = new FileLockRegistry({
       cwd: workspace,
       env,
-      ownerEnvKeys: ["CUSTOM_LOCK_OWNER"],
+      ownerEnvKeys: ["CUSTOM_LOCK_AGENT"],
     }).identify();
-    expect(configured.owner ? lockOwnerSessionId(configured.owner) : null).toBe("env-session");
+    expect(configured.owner ? lockOwnerAgentId(configured.owner) : null).toBe("env-agent");
     expect(configured.owner ? lockOwnerSource(configured.owner) : null).toBe(
-      "env:CUSTOM_LOCK_OWNER",
+      "env:CUSTOM_LOCK_AGENT",
     );
 
     const codex = new FileLockRegistry({
       cwd: workspace,
       env: { CODEX_THREAD_ID: "codex-thread" },
     }).identify();
-    expect(codex.owner ? lockOwnerSessionId(codex.owner) : null).toBe("codex:codex-thread");
+    expect(codex.owner ? lockOwnerAgentId(codex.owner) : null).toBe("codex:codex-thread");
     expect(codex.owner ? lockOwnerSource(codex.owner) : null).toBe("harness:codex:CODEX_THREAD_ID");
     expect(codex.owner?.harness).toBe("codex");
     expect(codex.owner?.harnessScope).toBe("agent");
@@ -240,9 +247,7 @@ test("owner detection supports explicit, configured env, and fallback session id
       cwd: workspace,
       env: { CLAUDE_CODE_SESSION_ID: "claude-session" },
     }).identify();
-    expect(claude.owner ? lockOwnerSessionId(claude.owner) : null).toBe(
-      "claude-code:claude-session",
-    );
+    expect(claude.owner ? lockOwnerAgentId(claude.owner) : null).toBe("claude-code:claude-session");
     expect(claude.owner ? lockOwnerSource(claude.owner) : null).toBe(
       "harness:claude-code:CLAUDE_CODE_SESSION_ID",
     );
@@ -251,24 +256,33 @@ test("owner detection supports explicit, configured env, and fallback session id
 
     const hookMain = new FileLockRegistry({
       cwd: workspace,
-      env: { LOCKPICK_OWNER_SESSION: "claude-code:claude-session:main" },
+      env: { LOCKPICK_HARNESS_AGENT_ID: "claude-code:claude-session:main" },
     }).identify();
+    expect(hookMain.owner ? lockOwnerAgentId(hookMain.owner) : null).toBe(
+      "claude-code:claude-session:main",
+    );
+    expect(hookMain.owner ? lockOwnerSource(hookMain.owner) : null).toBe(
+      "harness:lockpick:LOCKPICK_HARNESS_AGENT_ID",
+    );
     expect(hookMain.owner?.harness).toBe("claude-code");
     expect(hookMain.owner?.harnessScope).toBe("main");
     expect(hookMain.owner?.rawSessionId).toBe("claude-session");
 
     const hookAgent = new FileLockRegistry({
       cwd: workspace,
-      env: { LOCKPICK_OWNER_SESSION: "claude-code:claude-session:agent:agent-1" },
+      env: { LOCKPICK_HARNESS_AGENT_ID: "claude-code:claude-session:agent:agent-1" },
     }).identify();
+    expect(hookAgent.owner ? lockOwnerAgentId(hookAgent.owner) : null).toBe(
+      "claude-code:claude-session:agent:agent-1",
+    );
     expect(hookAgent.owner?.harness).toBe("claude-code");
     expect(hookAgent.owner?.harnessScope).toBe("agent");
-    expect(hookAgent.owner?.agentId).toBe("agent-1");
+    expect(hookAgent.owner?.harnessAgentId).toBe("agent-1");
 
     const fallback = new FileLockRegistry({ cwd: workspace, env: {} }).identify();
-    expect(
-      fallback.owner ? lockOwnerSessionId(fallback.owner).startsWith("lockpick:") : false,
-    ).toBe(true);
+    expect(fallback.owner ? lockOwnerAgentId(fallback.owner).startsWith("lockpick:") : false).toBe(
+      true,
+    );
     expect(fallback.owner ? lockOwnerSource(fallback.owner) : null).toBe("fallback");
     expect(fallback.owner?.harness).toBe("lockpick");
     expect(fallback.owner?.harnessScope).toBe("fallback");
@@ -285,7 +299,7 @@ test("lock command output is compact by default and renders lockpick commands", 
         globs: [],
         reason: "parse lock command",
         ttlMs: null,
-        ownerSession: "session-a",
+        agentId: "session-a",
         json: true,
         idOnly: false,
       },
@@ -299,7 +313,7 @@ test("lock command output is compact by default and renders lockpick commands", 
     const conflict = await conflictRegistry.acquire({
       paths: ["src/cli/program.ts"],
       reason: "other edit",
-      ownerSessionId: "session-b",
+      agentId: "session-b",
     });
 
     expect(acquired.exitCode).toBe(0);
@@ -325,7 +339,7 @@ test("lock command supports compact ids and batched refresh and release", async 
         globs: [],
         reason: "edit parser",
         ttlMs: null,
-        ownerSession: "session-a",
+        agentId: "session-a",
         json: false,
         idOnly: true,
       },
@@ -338,7 +352,7 @@ test("lock command supports compact ids and batched refresh and release", async 
         globs: [],
         reason: "edit parser tests",
         ttlMs: null,
-        ownerSession: "session-a",
+        agentId: "session-a",
         json: false,
         idOnly: true,
       },
@@ -351,7 +365,7 @@ test("lock command supports compact ids and batched refresh and release", async 
         name: "refresh",
         lockIds: ids,
         ttlMs: null,
-        ownerSession: "session-a",
+        agentId: "session-a",
         json: false,
         idOnly: true,
       },
@@ -361,7 +375,7 @@ test("lock command supports compact ids and batched refresh and release", async 
       {
         name: "release",
         lockIds: ids,
-        ownerSession: "session-a",
+        agentId: "session-a",
         json: false,
         idOnly: true,
       },
@@ -390,7 +404,7 @@ test("prune id-only returns pruned lock ids", async () => {
         globs: [],
         reason: "stale lock",
         ttlMs: 1000,
-        ownerSession: "session-a",
+        agentId: "session-a",
         json: false,
         idOnly: true,
       },
@@ -428,7 +442,7 @@ test("prune dry-run reports reclaimable locks without deleting", async () => {
         globs: [],
         reason: "stale lock",
         ttlMs: 1000,
-        ownerSession: "session-a",
+        agentId: "session-a",
         json: false,
         idOnly: true,
       },
@@ -484,6 +498,7 @@ function testRegistry(
 ): FileLockRegistry {
   return new FileLockRegistry({
     cwd: workspace,
+    env: {},
     now: typeof now === "function" ? now : () => now,
     sessionProbe: (owner) => sessionProbe(owner),
     ...overrides,

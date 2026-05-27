@@ -20,7 +20,7 @@ Commit with the shared Git index:
 Recover:
 - If a conflict returns prune_then_retry, run lockpick prune --dry-run --json, then lockpick prune.
 - If an unknown flag error prints next:, run that exact command.
-- If ownership fails, retry with the owning --owner-session or work on unlocked files.
+- If ownership fails, continue from the same harness agent or work on unlocked files.
 
 Output contract:
 - Prefer --json for data surfaces.

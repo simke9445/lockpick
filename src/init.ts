@@ -60,12 +60,12 @@ const RECOMMENDED_PACKAGE_SCRIPTS: Record<string, string> = {
   "lockpick:init": "lockpick init",
 };
 
-export const CLAUDE_LOCKPICK_OWNER_HOOK_PATH = ".claude/hooks/lockpick-owner-env.mjs";
+export const CLAUDE_LOCKPICK_AGENT_HOOK_PATH = ".claude/hooks/lockpick-agent-env.mjs";
 const CLAUDE_SETTINGS_PATH = ".claude/settings.json";
 const CLAUDE_HOOK_SCRIPT_REFERENCE =
-  "$" + "{CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-owner-env.mjs";
+  "$" + "{CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-agent-env.mjs";
 const CLAUDE_HOOK_COMMAND = "node";
-const CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT = `#!/usr/bin/env node
+const CLAUDE_LOCKPICK_AGENT_HOOK_SCRIPT = `#!/usr/bin/env node
 import { readFileSync } from "node:fs";
 
 const input = JSON.parse(readFileSync(0, "utf8") || "{}");
@@ -76,7 +76,11 @@ const toolInput = input.tool_input && typeof input.tool_input === "object" ? inp
 const command = typeof toolInput?.command === "string" ? toolInput.command : "";
 
 if (!command || !invokesLockpick(command)) process.exit(0);
-if (/\\bLOCKPICK_OWNER_SESSION\\s*=/.test(command) || /(^|\\s)--owner-session(\\s|=|$)/.test(command)) {
+if (
+  /\\bLOCKPICK_HARNESS_AGENT_ID\\s*=/.test(command) ||
+  /\\bLOCKPICK_AGENT_ID\\s*=/.test(command) ||
+  /(^|\\s)--agent-id(\\s|=|$)/.test(command)
+) {
   process.exit(0);
 }
 
@@ -100,7 +104,7 @@ process.stdout.write(
       hookEventName: "PreToolUse",
       updatedInput: {
         ...toolInput,
-        command: \`export LOCKPICK_OWNER_SESSION=\${shellQuote(ownerId)}; \${command}\`,
+        command: \`export LOCKPICK_HARNESS_AGENT_ID=\${shellQuote(ownerId)}; \${command}\`,
       },
     },
   }),
@@ -161,8 +165,8 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   };
 }
 
-export function renderClaudeLockpickOwnerHookScript(): string {
-  return CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT;
+export function renderClaudeLockpickAgentHookScript(): string {
+  return CLAUDE_LOCKPICK_AGENT_HOOK_SCRIPT;
 }
 
 export function resolveInitHarness(
@@ -249,7 +253,7 @@ export default {
     unknownLivenessGraceMs: 600_000,
   },
   owner: {
-    envKeys: ["LOCKPICK_OWNER_SESSION", "LOCKPICK_SESSION_ID"],
+    envKeys: ["LOCKPICK_AGENT_ID"],
     harnesses: ["codex", "claude-code"],
     fallbackPrefix: "lockpick",
   },
@@ -312,20 +316,20 @@ async function ensureClaudeHookScript(
   config: ResolvedLockpickConfig,
   check: boolean,
 ): Promise<InitChange> {
-  const hookPath = path.join(config.root, CLAUDE_LOCKPICK_OWNER_HOOK_PATH);
+  const hookPath = path.join(config.root, CLAUDE_LOCKPICK_AGENT_HOOK_PATH);
   const exists = await pathExists(hookPath);
   const current = exists ? await readText(hookPath) : "";
-  if (exists && current === CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT) {
-    return change(CLAUDE_LOCKPICK_OWNER_HOOK_PATH, "unchanged", "Claude owner hook is current");
+  if (exists && current === CLAUDE_LOCKPICK_AGENT_HOOK_SCRIPT) {
+    return change(CLAUDE_LOCKPICK_AGENT_HOOK_PATH, "unchanged", "Claude agent hook is current");
   }
   if (!check) {
     await ensureDir(path.dirname(hookPath));
-    await writeText(hookPath, CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT);
+    await writeText(hookPath, CLAUDE_LOCKPICK_AGENT_HOOK_SCRIPT);
   }
   return change(
-    CLAUDE_LOCKPICK_OWNER_HOOK_PATH,
+    CLAUDE_LOCKPICK_AGENT_HOOK_PATH,
     check ? (exists ? "would_update" : "would_create") : exists ? "updated" : "created",
-    "Claude owner hook is required",
+    "Claude agent hook is required",
   );
 }
 
@@ -443,7 +447,7 @@ function upsertClaudeHookSettings(settings: Record<string, unknown>): Record<str
     ? { ...(preToolUse[bashGroupIndex] as Record<string, unknown>) }
     : { matcher: "Bash" };
   const hookHandlers = Array.isArray(existingGroup.hooks) ? [...existingGroup.hooks] : [];
-  if (!hookHandlers.some(isClaudeLockpickOwnerHookHandler)) {
+  if (!hookHandlers.some(isClaudeLockpickAgentHookHandler)) {
     hookHandlers.push({
       type: "command",
       command: CLAUDE_HOOK_COMMAND,
@@ -461,7 +465,7 @@ function upsertClaudeHookSettings(settings: Record<string, unknown>): Record<str
   return { ...settings, hooks };
 }
 
-function isClaudeLockpickOwnerHookHandler(value: unknown): boolean {
+function isClaudeLockpickAgentHookHandler(value: unknown): boolean {
   return (
     isRecord(value) &&
     value.type === "command" &&

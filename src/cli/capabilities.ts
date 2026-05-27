@@ -3,8 +3,8 @@ import { DEFAULT_CONFIG_FILE, DEFAULT_LOCK_ROOT } from "../config";
 import {
   CLAUDE_CODE_SESSION_ENV_KEY,
   CODEX_OWNER_ENV_KEY,
-  DEFAULT_OWNER_ENV_KEYS,
-  DEFAULT_SUPERVISOR_ENV_KEYS,
+  DEFAULT_AGENT_ENV_KEYS,
+  LOCKPICK_HARNESS_AGENT_ENV_KEY,
 } from "../locks/session";
 import {
   DEFAULT_LOCK_TTL_MS,
@@ -74,7 +74,7 @@ export interface LockpickCapabilities {
 }
 
 const LOCK_OUTPUT_FLAGS = ["--json", "--id-only", "--verbose"];
-const OWNER_FLAGS = ["--owner-session"];
+const AGENT_FLAGS = ["--agent-id"];
 const TTL_FLAGS = ["--ttl-ms"];
 const RESOURCE_FLAGS = ["--glob"];
 
@@ -95,7 +95,7 @@ export function lockpickCapabilities(): LockpickCapabilities {
         json: true,
         id_only: true,
         verbose: true,
-        flags: [...RESOURCE_FLAGS, "--reason", ...TTL_FLAGS, ...OWNER_FLAGS, ...LOCK_OUTPUT_FLAGS],
+        flags: [...RESOURCE_FLAGS, "--reason", ...TTL_FLAGS, ...AGENT_FLAGS, ...LOCK_OUTPUT_FLAGS],
         required: ["--reason", "path-or-glob"],
         exit_codes: [0, 2, 3],
         next: [
@@ -118,7 +118,7 @@ export function lockpickCapabilities(): LockpickCapabilities {
           ...RESOURCE_FLAGS,
           "--reason",
           ...TTL_FLAGS,
-          ...OWNER_FLAGS,
+          ...AGENT_FLAGS,
           ...LOCK_OUTPUT_FLAGS,
         ],
         required: ["--lock", "path-or-glob"],
@@ -134,7 +134,7 @@ export function lockpickCapabilities(): LockpickCapabilities {
         json: true,
         id_only: true,
         verbose: true,
-        flags: ["--lock", ...TTL_FLAGS, ...OWNER_FLAGS, ...LOCK_OUTPUT_FLAGS],
+        flags: ["--lock", ...TTL_FLAGS, ...AGENT_FLAGS, ...LOCK_OUTPUT_FLAGS],
         required: ["lock-id"],
         exit_codes: [0, 2, 3],
         next: ['lockpick git begin --refresh-lock <lock_id> --reason "<commit intent>"'],
@@ -148,7 +148,7 @@ export function lockpickCapabilities(): LockpickCapabilities {
         json: true,
         id_only: true,
         verbose: true,
-        flags: ["--lock", ...OWNER_FLAGS, ...LOCK_OUTPUT_FLAGS],
+        flags: ["--lock", ...AGENT_FLAGS, ...LOCK_OUTPUT_FLAGS],
         required: ["lock-id"],
         exit_codes: [0, 2, 3],
         next: ["lockpick status --json"],
@@ -185,16 +185,16 @@ export function lockpickCapabilities(): LockpickCapabilities {
       {
         name: "identify",
         usage: "lockpick identify",
-        summary: "Show detected lock owner identity.",
+        summary: "Show detected lock agent identity.",
         category: "lock",
         mutates: false,
         json: true,
         id_only: false,
         verbose: true,
-        flags: [...OWNER_FLAGS, "--json", "--verbose"],
+        flags: [...AGENT_FLAGS, "--json", "--verbose"],
         required: [],
         exit_codes: [0],
-        next: ['lockpick acquire <paths...> --reason "<intent>" --owner-session <id>'],
+        next: ['lockpick acquire <paths...> --reason "<intent>"'],
       },
       {
         name: "git begin",
@@ -205,7 +205,7 @@ export function lockpickCapabilities(): LockpickCapabilities {
         json: true,
         id_only: true,
         verbose: true,
-        flags: ["--reason", "--refresh-lock", ...TTL_FLAGS, ...OWNER_FLAGS, ...LOCK_OUTPUT_FLAGS],
+        flags: ["--reason", "--refresh-lock", ...TTL_FLAGS, ...AGENT_FLAGS, ...LOCK_OUTPUT_FLAGS],
         required: ["--reason"],
         exit_codes: [0, 2, 3],
         next: [
@@ -223,7 +223,7 @@ export function lockpickCapabilities(): LockpickCapabilities {
         json: true,
         id_only: true,
         verbose: true,
-        flags: ["--lock", "--release-lock", ...OWNER_FLAGS, ...LOCK_OUTPUT_FLAGS],
+        flags: ["--lock", "--release-lock", ...AGENT_FLAGS, ...LOCK_OUTPUT_FLAGS],
         required: ["lock-id"],
         exit_codes: [0, 2, 3],
         next: ["lockpick status --json"],
@@ -301,30 +301,30 @@ export function lockpickCapabilities(): LockpickCapabilities {
       { code: 3, name: "lock_conflict", meaning: "Lock conflict or ownership failure." },
     ],
     env: [
-      ...DEFAULT_OWNER_ENV_KEYS.map((name) => ({
+      ...DEFAULT_AGENT_ENV_KEYS.map((name) => ({
         name,
-        purpose: "Owner session id lookup, after --owner-session.",
-      })),
-      ...DEFAULT_SUPERVISOR_ENV_KEYS.map((name) => ({
-        name,
-        purpose: "Optional supervisor session id recorded in lock owner metadata.",
+        purpose: "Agent id lookup for unsupported harnesses, after harness detection.",
       })),
       {
+        name: LOCKPICK_HARNESS_AGENT_ENV_KEY,
+        purpose: "Reserved harness-provided agent id, checked before explicit --agent-id.",
+      },
+      {
         name: CODEX_OWNER_ENV_KEY,
-        purpose: "Codex agent thread id used for automatic owner session detection.",
+        purpose: "Codex agent thread id used for automatic agent id detection.",
       },
       {
         name: CLAUDE_CODE_SESSION_ENV_KEY,
-        purpose: "Claude Code session id used as automatic session-scope owner fallback.",
+        purpose: "Claude Code session id used as automatic agent id detection fallback.",
       },
     ],
     owner_detection: {
       order: [
-        "--owner-session",
-        "LOCKPICK_OWNER_SESSION",
-        "LOCKPICK_SESSION_ID",
+        LOCKPICK_HARNESS_AGENT_ENV_KEY,
         CODEX_OWNER_ENV_KEY,
         CLAUDE_CODE_SESSION_ENV_KEY,
+        "--agent-id",
+        "LOCKPICK_AGENT_ID",
         "fallback",
       ],
       harnesses: [
