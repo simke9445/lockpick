@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { loadLockpickConfig, renderLockpickCommand } from "../config";
-import { runInstall } from "../install";
+import { runInit } from "../init";
 import { pathExists } from "../io";
 import { REGISTRY_MUTEX_STALE_MS } from "../locks/types";
 
@@ -38,7 +38,7 @@ export async function runDoctor(options: DoctorCommandOptions): Promise<DoctorRe
     status: config.configFound ? "ok" : "warn",
     message: config.configFound ? "config file found" : "config file missing; defaults are active",
   };
-  if (!config.configFound) configCheck.next = renderLockpickCommand(config, ["install", "--check"]);
+  if (!config.configFound) configCheck.next = renderLockpickCommand(config, ["init", "--check"]);
   checks.push(configCheck);
 
   checks.push(
@@ -54,21 +54,21 @@ export async function runDoctor(options: DoctorCommandOptions): Promise<DoctorRe
   );
   checks.push(await mutexCheck(path.join(config.lockRoot, ".mutex")));
 
-  const install = await runInstall({ root: config.root, check: true });
-  const installDrift = install.changes.filter((change) =>
+  const init = await runInit({ root: config.root, check: true });
+  const initDrift = init.changes.filter((change) =>
     ["would_create", "would_update", "reported"].includes(change.action),
   );
-  const installCheck: DoctorCheck = {
-    id: "install",
-    status: installDrift.length === 0 ? "ok" : "warn",
+  const initCheck: DoctorCheck = {
+    id: "init",
+    status: initDrift.length === 0 ? "ok" : "warn",
     message:
-      installDrift.length === 0
-        ? "install support files are current"
-        : `install drift detected: ${installDrift.length} change(s)`,
+      initDrift.length === 0
+        ? "init support files are current"
+        : `init drift detected: ${initDrift.length} change(s)`,
   };
-  if (installDrift.length > 0) installCheck.next = renderLockpickCommand(config, ["install"]);
-  if (options.verbose) installCheck.details = { changes: install.changes };
-  checks.push(installCheck);
+  if (initDrift.length > 0) initCheck.next = renderLockpickCommand(config, ["init"]);
+  if (options.verbose) initCheck.details = { changes: init.changes };
+  checks.push(initCheck);
 
   const summary = summarizeChecks(checks);
   return {

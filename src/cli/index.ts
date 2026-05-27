@@ -1,5 +1,5 @@
 import { lockpickCapabilities, renderCapabilitiesText } from "./capabilities";
-import { runInstallCommand } from "./commands/install";
+import { runInitCommand } from "./commands/init";
 import { lockExitCode, runLockCommand } from "./commands/lock";
 import { renderDoctorText, runDoctor } from "./doctor";
 import { helpText, parseCliArgs } from "./program";
@@ -17,8 +17,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       case "lock":
         await runLockCommand(parsed.command.command);
         return;
-      case "install":
-        await runInstallCommand(parsed.command.options);
+      case "init":
+        await runInitCommand(parsed.command.options);
         return;
       case "capabilities":
         if (parsed.command.options.json) {

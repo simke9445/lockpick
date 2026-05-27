@@ -37,8 +37,8 @@ Use the global command from any host repository:
 
 ```bash
 cd ../your-repo
-lockpick install --check --json || true
-lockpick install
+lockpick init --check --json || true
+lockpick init
 
 export LOCKPICK_OWNER_SESSION="${USER:-user}-$(date +%s)"
 file_lock="$(lockpick acquire README.md --reason "edit README" --id-only)"
@@ -46,7 +46,7 @@ lockpick status --json
 lockpick release "$file_lock" --id-only
 ```
 
-`install` writes the host-repo support files. `acquire`, `status`, and `release` prove the core
+`init` writes the host-repo support files. `acquire`, `status`, and `release` prove the core
 lock loop without depending on the Lockpick checkout path.
 
 ## TL;DR
@@ -61,8 +61,8 @@ worker is preparing a commit. Lockpick makes those coordination points explicit 
 | Avoid shared Git-index races | `git begin` acquires `@git/index`; `git end` releases it and can release file locks | `src/locks/types.ts`, `tests/locks.test.ts` |
 | Recover stale local locks | TTLs, liveness classification, `prune --dry-run`, then `prune` | `lockpick prune --dry-run --json` |
 | Keep automation parseable | `--json`, `--id-only`, compact error payloads, documented exit codes | `tests/cli.test.ts` |
-| Install repo guidance | Marked block in `AGENTS.md` by default, or `CLAUDE.md` with `--claude` | `lockpick install --check --json` |
-| Audit health | `doctor --json` checks config, lock dirs, mutex state, and install drift | `lockpick doctor --json` |
+| Init repo guidance | Marked block in `AGENTS.md` by default, or `CLAUDE.md` with `--harness claude-code` | `lockpick init --check --json` |
+| Audit health | `doctor --json` checks config, lock dirs, mutex state, and init drift | `lockpick doctor --json` |
 
 Lockpick is advisory. It coordinates tools and people that agree to use it; it does not stop an
 editor, shell command, or Git operation that ignores the protocol.
@@ -83,9 +83,9 @@ printf 'console.log("hello")\n' > app.ts
 printf '# Demo host repo\n' > AGENTS.md
 printf '{"scripts":{}}\n' > package.json
 
-# Expected to exit 1 when install drift is found; it does not write files.
-lockpick install --check --json || true
-lockpick install
+# Expected to exit 1 when init drift is found; it does not write files.
+lockpick init --check --json || true
+lockpick init
 
 file_lock="$(lockpick acquire app.ts --reason "edit app" --id-only)"
 lockpick expand --lock "$file_lock" README.md --id-only
@@ -105,7 +105,7 @@ Expected shape:
 status shows two locks while the file lock and @git/index lock are held.
 git end prints the released git lock id and file lock id.
 prune --dry-run reports pruned_count 0 in a fresh repo.
-doctor reports ok true after install completes.
+doctor reports ok true after init completes.
 ```
 
 ## Why Lockpick
@@ -136,19 +136,19 @@ npm install -g @simke9445/lockpick
 lockpick --help
 ```
 
-Use one global install method, not both. After installation, run `lockpick install` from each host
+Use one global install method, not both. After installation, run `lockpick init` from each host
 repository that should use advisory locking.
 
-### Host Install Behavior
+### Host Init Behavior
 
-`lockpick install` is idempotent. It can create or update:
+`lockpick init` is idempotent. It can create or update:
 
 | Path | Behavior |
 | --- | --- |
 | `.lockpick/locks/active/` | Local active lock records |
 | `lockpick.config.ts` | Default config when missing; existing config is preserved |
 | `AGENTS.md` | Marked Lockpick instructions block by default |
-| `CLAUDE.md` | Marked instructions block when `--claude` is used |
+| `CLAUDE.md` | Marked instructions block when `--harness claude-code` is used |
 | `.gitignore` | Adds `.lockpick/` |
 | `package.json` | Adds missing recommended scripts when a package file exists |
 
@@ -159,7 +159,7 @@ Recommended host scripts inserted when absent:
   "scripts": {
     "lockpick": "lockpick",
     "lockpick:status": "lockpick status",
-    "lockpick:install": "lockpick install"
+    "lockpick:init": "lockpick init"
   }
 }
 ```
@@ -171,12 +171,12 @@ The examples in this section assume the global install from [Setup And Usage](#s
 1. Pick the instruction target.
 
    ```bash
-   lockpick install --check --json || true
-   lockpick install
+   lockpick init --check --json || true
+   lockpick init
 
    # Or target CLAUDE.md instead of AGENTS.md.
-   lockpick install --check --claude --json || true
-   lockpick install --claude
+   lockpick init --check --harness claude-code --json || true
+   lockpick init --harness claude-code
    ```
 
 2. Use a stable owner across shell commands.
@@ -229,7 +229,7 @@ default TTLs, owner environment variables, and next commands.
 | `identify` | Show detected owner identity | `--owner-session`, `--json`, `--verbose` | `--id-only` is rejected; use `identify --json` |
 | `git begin` | Acquire the synthetic `@git/index` lock | `--reason`, `--refresh-lock`, `--ttl-ms`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Can refresh held file locks first |
 | `git end [locks...]` | Release the synthetic Git-index lock | `--lock`, `--release-lock`, `--owner-session`, `--json`, `--id-only`, `--verbose` | Can release file locks after the Git lock |
-| `install` | Install or check host support files | `--check`, `--claude`, `--json`, `--verbose` | `--check` exits 1 when changes are needed and writes nothing |
+| `init` | Install or check host support files | `--check`, `--harness claude-code`, `--json`, `--verbose` | `--check` exits 1 when changes are needed and writes nothing |
 | `capabilities` | Print the CLI contract | `--json` | Compact single-line JSON |
 | `robot-docs guide` | Print an in-tool agent workflow guide | none | Human text, deterministic golden-tested output |
 | `doctor` | Run read-only health checks | `--json`, `--verbose` | Exits 1 when warnings or errors are present |
@@ -239,7 +239,7 @@ default TTLs, owner environment variables, and next commands.
 | Code | Name | Meaning |
 | --- | --- | --- |
 | 0 | `success` | Command completed successfully |
-| 1 | `cli_or_check_error` | CLI parse error, install check drift, or `doctor` warning/error result |
+| 1 | `cli_or_check_error` | CLI parse error, init check drift, or `doctor` warning/error result |
 | 2 | `lock_usage_error` | Invalid lock input, missing lock id, or missing lock resource |
 | 3 | `lock_conflict` | Lock conflict or ownership failure |
 
@@ -311,7 +311,7 @@ export default {
     heading: "Lockpick coordination",
   },
 
-  install: {
+  init: {
     updateAgents: true,
     updateGitignore: true,
     updatePackageScripts: true,
@@ -333,14 +333,14 @@ import {
   defineLockpickConfig,
   executeLockCommand,
   loadLockpickConfig,
-  runInstall,
+  runInit,
 } from "@simke9445/lockpick";
 
 const config = defineLockpickConfig({
   lockRoot: ".lockpick/locks",
 });
 
-await runInstall({ root: process.cwd(), check: true });
+await runInit({ root: process.cwd(), check: true });
 
 const result = await executeLockCommand({
   name: "acquire",
@@ -362,7 +362,7 @@ await loadLockpickConfig();
 console.log(config.lockRoot);
 ```
 
-Other exported helpers include config resolution, install rendering, resource matching, resource
+Other exported helpers include config resolution, init rendering, resource matching, resource
 normalization, session detection, liveness probes, lock result rendering, and lock types.
 
 ## Architecture
@@ -379,7 +379,7 @@ bin/lockpick.ts
             -> .lockpick/locks/.mutex
             -> .lockpick/locks/active/<lock_id>.json
             -> .lockpick/locks/events.jsonl
-        -> install handler
+        -> init handler
           -> lockpick.config.ts
           -> AGENTS.md or CLAUDE.md marked block
           -> .gitignore
@@ -401,7 +401,7 @@ Lockpick is built for cooperative local coordination.
 | Owner-only changes | `expand`, `refresh`, and `release` require the owner session id recorded on the lock |
 | Short leases | Default TTL is 10 minutes; maximum default is 30 minutes |
 | Stale recovery | Expired locks are classified by liveness and become reclaimable after the configured unknown-liveness grace |
-| Safe inspection | `install --check --json`, `prune --dry-run --json`, `status --json`, `capabilities --json`, and `doctor --json` are the inspection surfaces |
+| Safe inspection | `init --check --json`, `prune --dry-run --json`, `status --json`, `capabilities --json`, and `doctor --json` are the inspection surfaces |
 | Git-index coordination | `git begin` locks only the synthetic `@git/index` resource; file locks are separate and should still cover staged paths |
 
 Lockpick does not provide a hosted coordinator, cross-machine consensus, authentication, encryption,
@@ -417,8 +417,8 @@ or a migration layer for old lock schemas. The lock record schema is current-ver
 | `At least one lock id is required for refresh.` | `refresh`, `release`, or `git end` needs a lock id | `lockpick status --id-only` |
 | `Lock path must be repo-relative` | Absolute paths are rejected | `lockpick acquire path/from/repo/root --reason "<intent>"` |
 | `Lock TTL must be <= 1800000.` | The requested lease exceeds the configured maximum | `lockpick refresh <lock_id> --ttl-ms 600000` |
-| `install --check --json` exits 1 | Install drift was found; no files were written | Review JSON changes, then run `lockpick install` |
-| `doctor --json` reports install drift | Support files are missing or stale | `lockpick install --check --json` |
+| `init --check --json` exits 1 | Init drift was found; no files were written | Review JSON changes, then run `lockpick init` |
+| `doctor --json` reports init drift | Support files are missing or stale | `lockpick init --check --json` |
 | Unknown flag or command prints `next:` | Lockpick found a close match | Run the exact `next:` command |
 
 ## Limitations
@@ -429,7 +429,7 @@ or a migration layer for old lock schemas. The lock record schema is current-ver
   networked lock server.
 - Advisory locks work only when participants use Lockpick before editing and staging.
 - Liveness defaults to `unknown`; the Codex adapter is opt-in config, not a generic default.
-- `install` writes a generic instruction block. It does not add prompt-optimization behavior,
+- `init` writes a generic instruction block. It does not add prompt-optimization behavior,
   repository-specific defaults, or command aliases.
 - There are no compatibility layers, deprecated command names, or migration tools for previous
   internal layouts or schemas.
@@ -476,7 +476,7 @@ and configure `lockRoot` if the default `.lockpick/locks` is not where you want 
 
 ### Is the lock state safe to commit?
 
-No. `install` adds `.lockpick/` to `.gitignore`. The lock state is local coordination data.
+No. `init` adds `.lockpick/` to `.gitignore`. The lock state is local coordination data.
 
 ## Development
 
@@ -489,7 +489,7 @@ bun run check
 ```
 
 The current tests cover CLI parsing and rendering, file-backed lock semantics, config loading,
-install idempotency, doctor output, capabilities JSON, generated instruction text, and the
+init idempotency, doctor output, capabilities JSON, generated instruction text, and the
 golden-tested robot guide.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.

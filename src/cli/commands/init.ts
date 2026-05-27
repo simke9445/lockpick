@@ -1,34 +1,36 @@
-import { type InstallResult, renderInstallResult, runInstall } from "../../install";
+import { type InitHarness, type InitResult, renderInitResult, runInit } from "../../init";
 
-export interface InstallCommandOptions {
+export interface InitCommandOptions {
   check: boolean;
   json: boolean;
   verbose: boolean;
-  claude: boolean;
+  harness: InitHarness;
 }
 
-export async function runInstallCommand(options: InstallCommandOptions): Promise<void> {
-  const result = await runInstall({
+export async function runInitCommand(options: InitCommandOptions): Promise<void> {
+  const result = await runInit({
     check: options.check,
-    instructionsTarget: options.claude ? "claude" : "agents",
+    harness: options.harness,
   });
   if (options.json) {
-    console.log(JSON.stringify(options.verbose ? result : compactInstallResult(result, options)));
+    console.log(JSON.stringify(options.verbose ? result : compactInitResult(result, options)));
   } else {
-    console.log(renderInstallResult(result));
+    console.log(renderInitResult(result));
   }
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }
 
-function compactInstallResult(
-  result: InstallResult,
-  options: InstallCommandOptions,
+function compactInitResult(
+  result: InitResult,
+  options: InitCommandOptions,
 ): Record<string, unknown> {
   return {
-    kind: "install",
+    kind: "init",
     ok: result.ok,
     exitCode: result.exitCode,
     check: options.check,
+    harness: result.harness,
+    resolved_harness: result.resolvedHarness,
     instructions_target: result.instructionsTarget,
     instructions_path: result.instructionsPath,
     change_count: result.changes.length,

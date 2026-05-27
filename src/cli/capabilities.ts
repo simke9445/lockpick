@@ -16,7 +16,7 @@ interface CommandCapability {
   name: string;
   usage: string;
   summary: string;
-  category: "lock" | "git" | "install" | "meta";
+  category: "lock" | "git" | "init" | "meta";
   mutates: boolean;
   json: boolean;
   id_only: boolean;
@@ -214,18 +214,18 @@ export function lockpickCapabilities(): LockpickCapabilities {
         next: ["lockpick status --json"],
       },
       {
-        name: "install",
-        usage: "lockpick install [--check] [--claude] [--json]",
-        summary: "Install Lockpick support files into the host repository.",
-        category: "install",
+        name: "init",
+        usage: "lockpick init [--check] [--harness auto|codex|claude-code] [--json]",
+        summary: "Initialize Lockpick support files in the host repository.",
+        category: "init",
         mutates: true,
         json: true,
         id_only: false,
         verbose: true,
-        flags: ["--check", "--claude", "--json", "--verbose"],
+        flags: ["--check", "--harness", "--json", "--verbose"],
         required: [],
         exit_codes: [0, 1],
-        next: ["lockpick install --check --json"],
+        next: ["lockpick init --check --json"],
         dry_run: "--check",
       },
       {
@@ -268,7 +268,7 @@ export function lockpickCapabilities(): LockpickCapabilities {
         flags: ["--json", "--verbose"],
         required: [],
         exit_codes: [0, 1],
-        next: ["lockpick install --check --json"],
+        next: ["lockpick init --check --json"],
       },
     ],
     exit_codes: [
@@ -276,7 +276,7 @@ export function lockpickCapabilities(): LockpickCapabilities {
       {
         code: 1,
         name: "cli_or_check_error",
-        meaning: "CLI parse error, install check drift, or doctor warning/error result.",
+        meaning: "CLI parse error, init check drift, or doctor warning/error result.",
       },
       {
         code: 2,

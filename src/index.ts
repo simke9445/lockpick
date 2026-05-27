@@ -10,12 +10,14 @@ export {
   resolveLockpickConfig,
 } from "./config";
 export {
-  type InstallInstructionsTarget,
-  type InstallResult,
+  type InitHarness,
+  type InitInstructionsTarget,
+  type InitResult,
   lockpickAgentsSnippet,
-  renderInstallResult,
-  runInstall,
-} from "./install";
+  renderInitResult,
+  resolveInitHarness,
+  runInit,
+} from "./init";
 export { executeLockCommand, renderLockResult } from "./locks/commands";
 export { resourcesConflict } from "./locks/matching";
 export { FileLockRegistry } from "./locks/registry";

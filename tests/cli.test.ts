@@ -38,7 +38,7 @@ test("help lists top-level lock commands", () => {
   expect(help).toContain("acquire");
   expect(help).toContain("refresh");
   expect(help).toContain("git");
-  expect(help).toContain("install");
+  expect(help).toContain("init");
   expect(help).toContain("capabilities");
   expect(help).toContain("robot-docs");
   expect(help).toContain("doctor");
@@ -136,15 +136,22 @@ test("parse prune dry-run command", () => {
   });
 });
 
-test("parse install check command", () => {
-  const parsed = parseCliArgs(["install", "--check", "--claude", "--json", "--verbose"]);
+test("parse init check command", () => {
+  const parsed = parseCliArgs([
+    "init",
+    "--check",
+    "--harness",
+    "claude-code",
+    "--json",
+    "--verbose",
+  ]);
   expect(parsed.command).toEqual({
-    kind: "install",
+    kind: "init",
     options: {
       check: true,
       json: true,
       verbose: true,
-      claude: true,
+      harness: "claude-code",
     },
   });
 });
@@ -313,19 +320,20 @@ test("capabilities json is compact and machine-readable", async () => {
   expect(payload.commands?.some((command) => command.name === "robot-docs guide")).toBe(true);
   expect(payload.commands?.some((command) => command.name === "doctor")).toBe(true);
   expect(payload.commands?.find((command) => command.name === "identify")?.id_only).toBe(false);
-  expect(payload.commands?.find((command) => command.name === "install")?.flags).toContain(
+  expect(payload.commands?.find((command) => command.name === "init")?.flags).toContain(
     "--verbose",
   );
-  expect(payload.commands?.find((command) => command.name === "install")?.flags).toContain(
-    "--claude",
+  expect(payload.commands?.find((command) => command.name === "init")?.flags).toContain(
+    "--harness",
   );
+  expect(payload.commands?.some((command) => command.name === "install")).toBe(false);
   expect(payload.commands?.find((command) => command.name === "prune")?.flags).toContain(
     "--dry-run",
   );
   expect(payload.exit_codes).toContainEqual({
     code: 1,
     name: "cli_or_check_error",
-    meaning: "CLI parse error, install check drift, or doctor warning/error result.",
+    meaning: "CLI parse error, init check drift, or doctor warning/error result.",
   });
   expect(payload.exit_codes).toContainEqual({
     code: 3,
@@ -344,11 +352,11 @@ test("robot docs guide matches golden output", async () => {
   );
 });
 
-test("install check json is compact by default with verbose full output", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-install-"));
+test("init check json is compact by default with verbose full output", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-init-"));
   try {
     await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
-    const compact = await runCli(["install", "--check", "--json"], workspace);
+    const compact = await runCli(["init", "--check", "--json"], workspace);
     expect(compact.code).toBe(1);
     expect(compact.stderr).toBe("");
     expect(compact.stdout.trim().split("\n")).toHaveLength(1);
@@ -358,6 +366,8 @@ test("install check json is compact by default with verbose full output", async 
       kind?: unknown;
       ok?: unknown;
       check?: unknown;
+      harness?: unknown;
+      resolved_harness?: unknown;
       instructions_target?: unknown;
       instructions_path?: unknown;
       change_count?: unknown;
@@ -365,9 +375,11 @@ test("install check json is compact by default with verbose full output", async 
       recommended_scripts?: unknown;
       root?: unknown;
     };
-    expect(payload.kind).toBe("install");
+    expect(payload.kind).toBe("init");
     expect(payload.ok).toBe(false);
     expect(payload.check).toBe(true);
+    expect(payload.harness).toBe("auto");
+    expect(payload.resolved_harness).toBe("codex");
     expect(payload.instructions_target).toBe("agents");
     expect(payload.instructions_path).toBe("AGENTS.md");
     expect(payload.change_count).toBe(payload.changes?.length);
@@ -377,12 +389,12 @@ test("install check json is compact by default with verbose full output", async 
     });
     expect(payload.recommended_scripts).toEqual([
       "lockpick",
-      "lockpick:install",
+      "lockpick:init",
       "lockpick:status",
     ]);
     expect(payload.root).toBeUndefined();
 
-    const verbose = await runCli(["install", "--check", "--json", "--verbose"], workspace);
+    const verbose = await runCli(["init", "--check", "--json", "--verbose"], workspace);
     const verbosePayload = JSON.parse(verbose.stdout) as Record<string, unknown>;
     expect(verbosePayload.root).toBe(await realpath(workspace));
     expect(verbosePayload.changes).toEqual(
@@ -393,11 +405,14 @@ test("install check json is compact by default with verbose full output", async 
   }
 });
 
-test("install claude json targets CLAUDE instructions", async () => {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-install-claude-"));
+test("init claude-code harness json targets CLAUDE instructions", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-init-claude-"));
   try {
     await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
-    const result = await runCli(["install", "--check", "--claude", "--json"], workspace);
+    const result = await runCli(
+      ["init", "--check", "--harness", "claude-code", "--json"],
+      workspace,
+    );
     expect(result.code).toBe(1);
     expect(result.stderr).toBe("");
     const payload = JSON.parse(result.stdout) as {
@@ -419,6 +434,23 @@ test("install claude json targets CLAUDE instructions", async () => {
   }
 });
 
+test("install command is not accepted", async () => {
+  const result = await runCli(["install", "--json"]);
+  expect(result.code).toBe(1);
+  expect(result.stderr).toBe("");
+  const payload = JSON.parse(result.stdout) as { code?: unknown; details?: unknown };
+  expect(payload.code).toBe("commander.unknownCommand");
+});
+
+test("init rejects unsupported harness values", async () => {
+  const result = await runCli(["init", "--harness", "both", "--json"]);
+  expect(result.code).toBe(1);
+  expect(result.stderr).toBe("");
+  const payload = JSON.parse(result.stdout) as { code?: unknown; message?: unknown };
+  expect(payload.code).toBe("commander.invalidArgument");
+  expect(payload.message).toEqual(expect.stringContaining("Expected auto, codex, or claude-code"));
+});
+
 test("doctor json reports read-only health checks", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-cli-doctor-"));
   try {
@@ -436,7 +468,7 @@ test("doctor json reports read-only health checks", async () => {
     expect(payload.kind).toBe("doctor");
     expect(payload.schema_version).toBe(1);
     expect(payload.ok).toBe(false);
-    expect(payload.checks?.some((check) => check.id === "install" && check.status === "warn")).toBe(
+    expect(payload.checks?.some((check) => check.id === "init" && check.status === "warn")).toBe(
       true,
     );
     expect(payload.checks?.every((check) => check.details === undefined)).toBe(true);
@@ -445,7 +477,7 @@ test("doctor json reports read-only health checks", async () => {
     const verbosePayload = JSON.parse(verbose.stdout) as {
       checks?: Array<{ id?: unknown; details?: unknown }>;
     };
-    expect(verbosePayload.checks?.find((check) => check.id === "install")?.details).toBeDefined();
+    expect(verbosePayload.checks?.find((check) => check.id === "init")?.details).toBeDefined();
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

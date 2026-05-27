@@ -12,16 +12,17 @@ import { formatJsonArtifact } from "./json";
 export const LOCKPICK_AGENTS_START = "<!-- lockpick:start -->";
 export const LOCKPICK_AGENTS_END = "<!-- lockpick:end -->";
 
-export interface InstallOptions {
+export interface InitOptions {
   root?: string;
   cwd?: string;
   check?: boolean;
-  instructionsTarget?: InstallInstructionsTarget;
+  harness?: InitHarness;
 }
 
-export type InstallInstructionsTarget = "agents" | "claude";
+export type InitHarness = "auto" | "codex" | "claude-code";
+export type InitInstructionsTarget = "agents" | "claude";
 
-export type InstallAction =
+export type InitAction =
   | "created"
   | "updated"
   | "unchanged"
@@ -30,23 +31,25 @@ export type InstallAction =
   | "would_update"
   | "reported";
 
-export interface InstallChange {
+export interface InitChange {
   path: string;
-  action: InstallAction;
+  action: InitAction;
   message: string;
 }
 
-export interface InstallResult {
+export interface InitResult {
   ok: boolean;
   exitCode: number;
   root: string;
-  instructionsTarget: InstallInstructionsTarget;
+  harness: InitHarness;
+  resolvedHarness: Exclude<InitHarness, "auto">;
+  instructionsTarget: InitInstructionsTarget;
   instructionsPath: string;
-  changes: InstallChange[];
+  changes: InitChange[];
   recommendedScripts: Record<string, string>;
 }
 
-const INSTALL_INSTRUCTIONS_PATHS: Record<InstallInstructionsTarget, string> = {
+const INIT_INSTRUCTIONS_PATHS: Record<InitInstructionsTarget, string> = {
   agents: "AGENTS.md",
   claude: "CLAUDE.md",
 };
@@ -54,27 +57,29 @@ const INSTALL_INSTRUCTIONS_PATHS: Record<InstallInstructionsTarget, string> = {
 const RECOMMENDED_PACKAGE_SCRIPTS: Record<string, string> = {
   lockpick: "lockpick",
   "lockpick:status": "lockpick status",
-  "lockpick:install": "lockpick install",
+  "lockpick:init": "lockpick init",
 };
 
-export async function runInstall(options: InstallOptions = {}): Promise<InstallResult> {
+export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   const root = path.resolve(options.root ?? (await findHostRoot(options.cwd ?? process.cwd())));
   const check = Boolean(options.check);
-  const instructionsTarget = options.instructionsTarget ?? "agents";
-  const instructionsPath = INSTALL_INSTRUCTIONS_PATHS[instructionsTarget];
+  const harness = options.harness ?? "auto";
+  const resolvedHarness = resolveInitHarness(harness, process.env);
+  const instructionsTarget = instructionsTargetForHarness(resolvedHarness);
+  const instructionsPath = INIT_INSTRUCTIONS_PATHS[instructionsTarget];
   const config = await loadLockpickConfig({ root });
-  const changes: InstallChange[] = [];
+  const changes: InitChange[] = [];
 
   changes.push(await ensureLockDirectories(config, check));
   changes.push(await ensureConfigFile(config, check));
 
-  if (config.install.updateAgents) {
+  if (config.init.updateAgents) {
     changes.push(await ensureAgentsInstructions(config, check, instructionsPath));
   }
-  if (config.install.updateGitignore) {
+  if (config.init.updateGitignore) {
     changes.push(await ensureGitignore(config, check));
   }
-  if (config.install.updatePackageScripts) {
+  if (config.init.updatePackageScripts) {
     changes.push(await ensurePackageScripts(config, check));
   }
 
@@ -85,6 +90,8 @@ export async function runInstall(options: InstallOptions = {}): Promise<InstallR
     ok: !checkFailed,
     exitCode: checkFailed ? 1 : 0,
     root,
+    harness,
+    resolvedHarness,
     instructionsTarget,
     instructionsPath,
     changes,
@@ -92,9 +99,24 @@ export async function runInstall(options: InstallOptions = {}): Promise<InstallR
   };
 }
 
-export function renderInstallResult(result: InstallResult): string {
+export function resolveInitHarness(
+  harness: InitHarness,
+  env: NodeJS.ProcessEnv = process.env,
+): Exclude<InitHarness, "auto"> {
+  if (harness !== "auto") return harness;
+  const claudeSession = env.CLAUDE_CODE_SESSION_ID?.trim();
+  const codexThread = env.CODEX_THREAD_ID?.trim();
+  if (claudeSession && !codexThread) return "claude-code";
+  return "codex";
+}
+
+function instructionsTargetForHarness(harness: Exclude<InitHarness, "auto">): InitInstructionsTarget {
+  return harness === "claude-code" ? "claude" : "agents";
+}
+
+export function renderInitResult(result: InitResult): string {
   const lines = [
-    result.ok ? "lockpick install: ok" : "lockpick install: changes needed",
+    result.ok ? "lockpick init: ok" : "lockpick init: changes needed",
     `root: ${result.root}`,
   ];
   for (const change of result.changes) {
@@ -172,7 +194,7 @@ export default {
 async function ensureLockDirectories(
   config: ResolvedLockpickConfig,
   check: boolean,
-): Promise<InstallChange> {
+): Promise<InitChange> {
   const activeDir = path.join(config.lockRoot, "active");
   if (await pathExists(activeDir)) {
     return change(config.lockRootRelative, "unchanged", "lock directory exists");
@@ -188,7 +210,7 @@ async function ensureLockDirectories(
 async function ensureConfigFile(
   config: ResolvedLockpickConfig,
   check: boolean,
-): Promise<InstallChange> {
+): Promise<InitChange> {
   const relative = path.relative(config.root, config.configPath) || DEFAULT_CONFIG_FILE;
   if (await pathExists(config.configPath)) {
     return change(relative, "exists", "existing config preserved");
@@ -201,7 +223,7 @@ async function ensureAgentsInstructions(
   config: ResolvedLockpickConfig,
   check: boolean,
   instructionsPath: string,
-): Promise<InstallChange> {
+): Promise<InitChange> {
   const agentsPath = path.join(config.root, instructionsPath);
   const relative = instructionsPath;
   const snippet = lockpickAgentsSnippet(config);
@@ -220,7 +242,7 @@ async function ensureAgentsInstructions(
 async function ensureGitignore(
   config: ResolvedLockpickConfig,
   check: boolean,
-): Promise<InstallChange> {
+): Promise<InitChange> {
   const gitignorePath = path.join(config.root, ".gitignore");
   const relative = ".gitignore";
   const entry = ".lockpick/";
@@ -240,7 +262,7 @@ async function ensureGitignore(
 async function ensurePackageScripts(
   config: ResolvedLockpickConfig,
   check: boolean,
-): Promise<InstallChange> {
+): Promise<InitChange> {
   const packagePath = path.join(config.root, "package.json");
   const relative = "package.json";
   if (!(await pathExists(packagePath))) {
@@ -293,6 +315,6 @@ function appendLine(current: string, line: string): string {
   return `${current.replace(/\s*$/, "\n")}${line}\n`;
 }
 
-function change(pathLabel: string, action: InstallAction, message: string): InstallChange {
+function change(pathLabel: string, action: InitAction, message: string): InitChange {
   return { path: pathLabel, action, message };
 }

@@ -1,13 +1,14 @@
 import { Command, CommanderError, InvalidArgumentError, type OutputConfiguration } from "commander";
+import type { InitHarness } from "../init";
 import { type LockCommand, LockCommandError } from "../locks/types";
 import type { CapabilitiesCommandOptions } from "./capabilities";
-import type { InstallCommandOptions } from "./commands/install";
+import type { InitCommandOptions } from "./commands/init";
 import type { DoctorCommandOptions } from "./doctor";
 import type { RobotDocsCommandOptions } from "./robot-docs";
 
 export type CliCommand =
   | { kind: "lock"; command: LockCommand }
-  | { kind: "install"; options: InstallCommandOptions }
+  | { kind: "init"; options: InitCommandOptions }
   | { kind: "capabilities"; options: CapabilitiesCommandOptions }
   | { kind: "robot-docs"; options: RobotDocsCommandOptions }
   | { kind: "doctor"; options: DoctorCommandOptions };
@@ -75,11 +76,11 @@ interface LockGitEndOptions extends LockOutputOptions {
   ownerSession?: string;
 }
 
-interface InstallCliOptions {
+interface InitCliOptions {
   check?: boolean;
   json?: boolean;
   verbose?: boolean;
-  claude?: boolean;
+  harness?: InitHarness;
 }
 
 export function parseCliArgs(argv: string[]): ParsedCli {
@@ -125,7 +126,7 @@ function createProgram(onCommand?: (command: CliCommand) => void): Command {
     .enablePositionalOptions();
 
   addLockCommands(program, onCommand);
-  addInstallCommand(program, onCommand);
+  addInitCommand(program, onCommand);
   addCapabilitiesCommand(program, onCommand);
   addRobotDocsCommand(program, onCommand);
   addDoctorCommand(program, onCommand);
@@ -388,24 +389,29 @@ function addLockCommands(program: Command, onCommand?: (command: CliCommand) => 
   });
 }
 
-function addInstallCommand(program: Command, onCommand?: (command: CliCommand) => void): void {
+function addInitCommand(program: Command, onCommand?: (command: CliCommand) => void): void {
   program
-    .command("install")
-    .description("Install Lockpick support files into the host repository.")
+    .command("init")
+    .description("Initialize Lockpick support files in the host repository.")
     .option("--check", "Report required changes without writing.")
-    .option("--claude", "Write Lockpick instructions to CLAUDE.md instead of AGENTS.md.")
+    .option(
+      "--harness <name>",
+      "Agent harness for generated support files: auto, codex, or claude-code.",
+      parseInitHarness,
+      "auto",
+    )
     .option("--json", "Print machine-readable output.")
-    .option("--verbose", "Include full install JSON details.")
+    .option("--verbose", "Include full init JSON details.")
     .allowExcessArguments(false)
-    .action((_options: InstallCliOptions, command: Command) => {
-      const options = command.opts<InstallCliOptions>();
+    .action((_options: InitCliOptions, command: Command) => {
+      const options = command.opts<InitCliOptions>();
       onCommand?.({
-        kind: "install",
+        kind: "init",
         options: {
           check: Boolean(options.check),
           json: Boolean(options.json),
           verbose: Boolean(options.verbose),
-          claude: Boolean(options.claude),
+          harness: options.harness ?? "auto",
         },
       });
     });
@@ -491,6 +497,11 @@ function parseInteger(value: string, previous: unknown): number {
 
 function collectValues(value: string, previous: string[]): string[] {
   return [...previous, value];
+}
+
+function parseInitHarness(value: string): InitHarness {
+  if (value === "auto" || value === "codex" || value === "claude-code") return value;
+  throw new InvalidArgumentError(`Expected auto, codex, or claude-code, got ${value}`);
 }
 
 function mergeLockIds(optionLocks: string[] | undefined, positional: string[]): string[] {

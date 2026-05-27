@@ -44,7 +44,7 @@ export interface LockpickAgentsConfig {
   heading?: string;
 }
 
-export interface LockpickInstallConfig {
+export interface LockpickInitConfig {
   updateAgents?: boolean;
   updateGitignore?: boolean;
   updatePackageScripts?: boolean;
@@ -60,7 +60,7 @@ export interface LockpickConfig {
     adapter?: LivenessAdapterName;
   };
   agents?: LockpickAgentsConfig;
-  install?: LockpickInstallConfig;
+  init?: LockpickInitConfig;
 }
 
 export interface ResolvedCommandConfig {
@@ -87,7 +87,7 @@ export interface ResolvedLockpickConfig {
     adapter: LivenessAdapterName;
   };
   agents: Required<LockpickAgentsConfig>;
-  install: Required<LockpickInstallConfig>;
+  init: Required<LockpickInitConfig>;
 }
 
 export interface LoadLockpickConfigOptions {
@@ -147,10 +147,10 @@ export function resolveLockpickConfig(
       enabled: config.agents?.enabled ?? true,
       heading: config.agents?.heading ?? "Lockpick coordination",
     },
-    install: {
-      updateAgents: config.install?.updateAgents ?? true,
-      updateGitignore: config.install?.updateGitignore ?? true,
-      updatePackageScripts: config.install?.updatePackageScripts ?? true,
+    init: {
+      updateAgents: config.init?.updateAgents ?? true,
+      updateGitignore: config.init?.updateGitignore ?? true,
+      updatePackageScripts: config.init?.updatePackageScripts ?? true,
     },
   };
 }

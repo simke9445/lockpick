@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { lockpickAgentsSnippet, resolveLockpickConfig, runInstall } from "../src/index";
+import { lockpickAgentsSnippet, resolveLockpickConfig, runInit } from "../src/index";
 
-test("install creates support files in an empty repo", async () => {
+test("init creates support files in an empty repo", async () => {
   await withWorkspace(async (workspace) => {
     await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
 
-    const result = await runInstall({ root: workspace });
+    const result = await runInit({ root: workspace });
     expect(result.exitCode).toBe(0);
     expect(result.changes.map((change) => change.action)).toContain("created");
 
@@ -28,7 +28,7 @@ test("install creates support files in an empty repo", async () => {
   });
 });
 
-test("install updates existing AGENTS and .gitignore without overwriting unrelated content", async () => {
+test("init updates existing AGENTS and .gitignore without overwriting unrelated content", async () => {
   await withWorkspace(async (workspace) => {
     await writeFile(path.join(workspace, "AGENTS.md"), "# Existing\n\nKeep this.\n", "utf8");
     await writeFile(path.join(workspace, ".gitignore"), "node_modules/\n", "utf8");
@@ -38,7 +38,7 @@ test("install updates existing AGENTS and .gitignore without overwriting unrelat
       "utf8",
     );
 
-    await runInstall({ root: workspace });
+    await runInit({ root: workspace });
 
     const agents = await readFile(path.join(workspace, "AGENTS.md"), "utf8");
     const gitignore = await readFile(path.join(workspace, ".gitignore"), "utf8");
@@ -55,12 +55,13 @@ test("install updates existing AGENTS and .gitignore without overwriting unrelat
   });
 });
 
-test("install can target CLAUDE instructions instead of AGENTS", async () => {
+test("init can target CLAUDE instructions for Claude Code harness", async () => {
   await withWorkspace(async (workspace) => {
     await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
 
-    const result = await runInstall({ root: workspace, instructionsTarget: "claude" });
+    const result = await runInit({ root: workspace, harness: "claude-code" });
 
+    expect(result.resolvedHarness).toBe("claude-code");
     expect(result.instructionsTarget).toBe("claude");
     expect(result.instructionsPath).toBe("CLAUDE.md");
     expect(result.changes).toEqual(
@@ -73,16 +74,16 @@ test("install can target CLAUDE instructions instead of AGENTS", async () => {
   });
 });
 
-test("install preserves existing config and is idempotent", async () => {
+test("init preserves existing config and is idempotent", async () => {
   await withWorkspace(async (workspace) => {
     const configText = 'export default { projectName: "Custom", lockRoot: ".custom-locks" };\n';
     await writeFile(path.join(workspace, "lockpick.config.ts"), configText, "utf8");
     await writeFile(path.join(workspace, "package.json"), '{"scripts":{}}\n', "utf8");
 
-    await runInstall({ root: workspace });
+    await runInit({ root: workspace });
     expect(await readFile(path.join(workspace, "lockpick.config.ts"), "utf8")).toBe(configText);
 
-    const rerun = await runInstall({ root: workspace });
+    const rerun = await runInit({ root: workspace });
     expect(rerun.ok).toBe(true);
     expect(rerun.changes.every((change) => ["unchanged", "exists"].includes(change.action))).toBe(
       true,
@@ -90,9 +91,9 @@ test("install preserves existing config and is idempotent", async () => {
   });
 });
 
-test("install check reports missing files without writing", async () => {
+test("init check reports missing files without writing", async () => {
   await withWorkspace(async (workspace) => {
-    const result = await runInstall({ root: workspace, check: true });
+    const result = await runInit({ root: workspace, check: true });
     expect(result.ok).toBe(false);
     expect(result.exitCode).toBe(1);
     expect(result.changes.some((change) => change.action === "would_create")).toBe(true);
@@ -108,7 +109,7 @@ test("generated AGENTS snippet renders lockpick command usage", () => {
 });
 
 async function withWorkspace(fn: (workspace: string) => Promise<void>): Promise<void> {
-  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-install-"));
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "lockpick-init-"));
   try {
     await fn(workspace);
   } finally {
