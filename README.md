@@ -8,11 +8,12 @@ Local advisory locks for multi-agent coding in one Git worktree.
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Status pre-release](https://img.shields.io/badge/status-pre--release-orange)
 
-Lockpick coordinates coding agents working in the same repository by giving the worktree a
-small local lock registry. Reserve exact files, refresh short leases, recover reclaimable stale
-locks, and serialize `git add` or `git commit` through a synthetic `@git/index` resource. State is
-ordinary files under `.lockpick/locks`; there is no daemon, database, hosted service, or
-repository-specific prompt behavior.
+Lockpick is an agent-native coordination tool for coding agents sharing one repository worktree.
+It gives the worktree a small local lock registry, detects the active Codex or Claude Code agent,
+and records locks under that agent id automatically. Reserve exact files, refresh short leases,
+recover reclaimable stale locks, and serialize `git add` or `git commit` through a synthetic
+`@git/index` resource. State is ordinary files under `.lockpick/locks`; there is no daemon,
+database, hosted service, or repository-specific prompt behavior.
 
 ## Setup And Usage
 
@@ -33,7 +34,8 @@ lockpick --help
 
 If the command is not found, add your package manager's global binary directory to `PATH`.
 
-Inside Codex or Claude Code, use the global command from any host repository:
+Inside Codex or Claude Code, use the global command from any host repository. The harness supplies
+the agent identity; do not set an agent id yourself for normal use.
 
 ```bash
 cd ../your-repo
@@ -64,20 +66,19 @@ worker is preparing a commit. Lockpick makes those coordination points explicit 
 | Init repo guidance | Marked block in `AGENTS.md` by default, or `CLAUDE.md` with `--harness claude-code` | `lockpick init --check --json` |
 | Audit health | `doctor --json` checks config, lock dirs, mutex state, and init drift | `lockpick doctor --json` |
 
-Lockpick is advisory. It coordinates tools and people that agree to use it; it does not stop an
-editor, shell command, or Git operation that ignores the protocol.
+Lockpick is advisory. It coordinates agents that agree to use it; it does not stop an editor, shell
+command, or Git operation that ignores the protocol.
 
 ## Quick Demo
 
-This standalone shell demo runs against a temporary host repository with the global `lockpick`
-command. It pins `LOCKPICK_AGENT_ID` only because the demo is outside a supported agent harness;
-Codex and Claude Code sessions are detected automatically.
+This demo is meant to run inside Codex or Claude Code. The active harness identity is detected
+automatically, including Claude Code subagents when `lockpick init --harness claude-code` has
+installed the project hook.
 
 ```bash
 HOST="$(mktemp -d)"
 cd "$HOST"
 git init -q
-export LOCKPICK_AGENT_ID="demo-$$"
 
 printf 'console.log("hello")\n' > app.ts
 printf '# Demo host repo\n' > AGENTS.md
@@ -87,6 +88,7 @@ printf '{"scripts":{}}\n' > package.json
 lockpick init --check --json || true
 lockpick init
 
+lockpick identify --json
 file_lock="$(lockpick acquire app.ts --reason "edit app" --id-only)"
 lockpick expand --lock "$file_lock" README.md --id-only
 lockpick refresh "$file_lock" --id-only
@@ -102,6 +104,7 @@ lockpick doctor --json
 Expected shape:
 
 ```text
+identify shows a harness source such as CODEX_THREAD_ID or LOCKPICK_HARNESS_AGENT_ID.
 status shows two locks while the file lock and @git/index lock are held.
 git end prints the released git lock id and file lock id.
 prune --dry-run reports pruned_count 0 in a fresh repo.
@@ -168,7 +171,8 @@ Recommended host scripts inserted when absent:
 
 ## Quick Start
 
-The examples in this section assume the global install from [Setup And Usage](#setup-and-usage).
+The examples in this section assume the global install from [Setup And Usage](#setup-and-usage)
+and a supported agent harness. Codex and Claude Code identity is automatic.
 
 1. Pick the instruction target.
 
@@ -235,6 +239,9 @@ default TTLs, agent identity detection, and next commands.
 | `robot-docs guide` | Print an in-tool agent workflow guide | none | Human text, deterministic golden-tested output |
 | `doctor` | Run read-only health checks | `--json`, `--verbose` | Exits 1 when warnings or errors are present |
 
+Do not pass `--agent-id` in normal Codex or Claude Code use. That flag exists for unsupported
+harness integrations and recovery from outside the original harness agent.
+
 ### Exit Codes
 
 | Code | Name | Meaning |
@@ -289,7 +296,8 @@ export default {
   },
 
   owner: {
-    // Checked after supported harnesses and explicit --agent-id.
+    // Fallback lookup for unsupported harness integrations.
+    // Codex and Claude Code use harness detection automatically.
     envKeys: ["LOCKPICK_AGENT_ID"],
 
     // Runtime harnesses checked first.
@@ -438,16 +446,17 @@ or a migration layer for old lock schemas. The lock record schema is current-ver
 
 ### Is this only for agents?
 
-Lockpick is agent-first. A person can run the same commands for manual recovery or local debugging,
-but the default workflow assumes a coding harness supplies a stable agent id.
+Lockpick is agent-native. A person can run the same commands for recovery or local debugging, but
+the normal workflow assumes Codex, Claude Code, or another coding harness supplies a stable agent
+id.
 
 ### How should agents identify themselves?
 
-Lockpick checks supported harness identity first. Claude Code hooks can pass
+They normally should not. Lockpick checks supported harness identity first. Claude Code hooks pass
 `LOCKPICK_HARNESS_AGENT_ID`; Codex uses `CODEX_THREAD_ID`; Claude Code falls back to
-`CLAUDE_CODE_SESSION_ID` when the hook is absent. Only unsupported harnesses or manual recovery
-need `--agent-id` or `LOCKPICK_AGENT_ID`. Without any stable source, Lockpick falls back to a
-process-scoped id.
+`CLAUDE_CODE_SESSION_ID` when the hook is absent. `--agent-id` and `LOCKPICK_AGENT_ID` are only for
+unsupported harness integrations or recovery from outside the original harness agent. Without any
+stable source, Lockpick falls back to a process-scoped id.
 
 ### What happens in CI?
 
