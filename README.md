@@ -8,12 +8,14 @@ Local advisory locks for multi-agent coding in one Git worktree.
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Status pre-release](https://img.shields.io/badge/status-pre--release-orange)
 
-Lockpick is an agent-native coordination tool for coding agents sharing one repository worktree.
-It gives the worktree a small local lock registry, detects the active Codex or Claude Code agent,
-and records locks under that agent id automatically. Reserve exact files, refresh short leases,
-recover reclaimable stale locks, and serialize `git add` or `git commit` through a synthetic
-`@git/index` resource. State is ordinary files under `.lockpick/locks`; there is no daemon,
-database, hosted service, or repository-specific prompt behavior.
+Lockpick is an agent-native coordination tool for shared coding worktrees.
+
+- Detects the active Codex or Claude Code agent and records locks under that agent id.
+- Reserves exact files, refreshes short leases, and recovers reclaimable stale locks.
+- Serializes `git add` and `git commit` through a synthetic `@git/index` resource.
+
+State is ordinary files under `.lockpick/locks`: no daemon, database, hosted service, or
+repository-specific prompt behavior.
 
 ## Setup And Usage
 
