@@ -149,6 +149,8 @@ repository that should use advisory locking.
 | `lockpick.config.ts` | Default config when missing; existing config is preserved |
 | `AGENTS.md` | Marked Lockpick instructions block by default |
 | `CLAUDE.md` | Marked instructions block when `--harness claude-code` is used |
+| `.claude/settings.json` | Adds a Claude Code `PreToolUse` hook when `--harness claude-code` is used |
+| `.claude/hooks/lockpick-owner-env.mjs` | Per-Bash-call owner injection hook for Claude Code subagents |
 | `.gitignore` | Adds `.lockpick/` |
 | `package.json` | Adds missing recommended scripts when a package file exists |
 

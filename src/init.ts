@@ -60,6 +60,64 @@ const RECOMMENDED_PACKAGE_SCRIPTS: Record<string, string> = {
   "lockpick:init": "lockpick init",
 };
 
+export const CLAUDE_LOCKPICK_OWNER_HOOK_PATH = ".claude/hooks/lockpick-owner-env.mjs";
+const CLAUDE_SETTINGS_PATH = ".claude/settings.json";
+const CLAUDE_HOOK_SCRIPT_REFERENCE =
+  "${CLAUDE_PROJECT_DIR}/.claude/hooks/lockpick-owner-env.mjs";
+const CLAUDE_HOOK_COMMAND = "node";
+const CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT = `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+
+const input = JSON.parse(readFileSync(0, "utf8") || "{}");
+
+if (input.tool_name !== "Bash") process.exit(0);
+
+const toolInput = input.tool_input && typeof input.tool_input === "object" ? input.tool_input : null;
+const command = typeof toolInput?.command === "string" ? toolInput.command : "";
+
+if (!command || !invokesLockpick(command)) process.exit(0);
+if (/\\bLOCKPICK_OWNER_SESSION\\s*=/.test(command) || /(^|\\s)--owner-session(\\s|=|$)/.test(command)) {
+  process.exit(0);
+}
+
+const sessionId =
+  typeof input.session_id === "string" && input.session_id.trim()
+    ? input.session_id.trim()
+    : typeof process.env.CLAUDE_CODE_SESSION_ID === "string"
+      ? process.env.CLAUDE_CODE_SESSION_ID.trim()
+      : "";
+
+if (!sessionId) process.exit(0);
+
+const agentId = typeof input.agent_id === "string" ? input.agent_id.trim() : "";
+const ownerId = agentId
+  ? \`claude-code:\${sessionId}:agent:\${agentId}\`
+  : \`claude-code:\${sessionId}:main\`;
+
+process.stdout.write(
+  JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      updatedInput: {
+        ...toolInput,
+        command: \`export LOCKPICK_OWNER_SESSION=\${shellQuote(ownerId)}; \${command}\`,
+      },
+    },
+  }),
+);
+
+function invokesLockpick(command) {
+  const direct = /(^|[;&|(){}]\\s*)\\s*(?:[A-Za-z_][A-Za-z0-9_]*=[^\\s]+\\s+)*lockpick(?:\\s|$)/;
+  const packageScript =
+    /(^|[;&|(){}]\\s*)\\s*(?:[A-Za-z_][A-Za-z0-9_]*=[^\\s]+\\s+)*(?:bun|npm|pnpm)\\s+run\\s+(?:--silent\\s+)?lockpick(?::[A-Za-z0-9:_-]+)?(?:\\s|$)/;
+  return direct.test(command) || packageScript.test(command);
+}
+
+function shellQuote(value) {
+  return \`'\${value.replace(/'/g, "'\\\\''")}'\`;
+}
+`;
+
 export async function runInit(options: InitOptions = {}): Promise<InitResult> {
   const root = path.resolve(options.root ?? (await findHostRoot(options.cwd ?? process.cwd())));
   const check = Boolean(options.check);
@@ -75,6 +133,10 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
 
   if (config.init.updateAgents) {
     changes.push(await ensureAgentsInstructions(config, check, instructionsPath));
+  }
+  if (resolvedHarness === "claude-code") {
+    changes.push(await ensureClaudeHookScript(config, check));
+    changes.push(await ensureClaudeSettings(config, check));
   }
   if (config.init.updateGitignore) {
     changes.push(await ensureGitignore(config, check));
@@ -97,6 +159,10 @@ export async function runInit(options: InitOptions = {}): Promise<InitResult> {
     changes,
     recommendedScripts: RECOMMENDED_PACKAGE_SCRIPTS,
   };
+}
+
+export function renderClaudeLockpickOwnerHookScript(): string {
+  return CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT;
 }
 
 export function resolveInitHarness(
@@ -240,6 +306,51 @@ async function ensureAgentsInstructions(
   );
 }
 
+async function ensureClaudeHookScript(
+  config: ResolvedLockpickConfig,
+  check: boolean,
+): Promise<InitChange> {
+  const hookPath = path.join(config.root, CLAUDE_LOCKPICK_OWNER_HOOK_PATH);
+  const exists = await pathExists(hookPath);
+  const current = exists ? await readText(hookPath) : "";
+  if (exists && current === CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT) {
+    return change(CLAUDE_LOCKPICK_OWNER_HOOK_PATH, "unchanged", "Claude owner hook is current");
+  }
+  if (!check) {
+    await ensureDir(path.dirname(hookPath));
+    await writeText(hookPath, CLAUDE_LOCKPICK_OWNER_HOOK_SCRIPT);
+  }
+  return change(
+    CLAUDE_LOCKPICK_OWNER_HOOK_PATH,
+    check ? (exists ? "would_update" : "would_create") : exists ? "updated" : "created",
+    "Claude owner hook is required",
+  );
+}
+
+async function ensureClaudeSettings(
+  config: ResolvedLockpickConfig,
+  check: boolean,
+): Promise<InitChange> {
+  const settingsPath = path.join(config.root, CLAUDE_SETTINGS_PATH);
+  const exists = await pathExists(settingsPath);
+  const current = exists ? await readText(settingsPath) : "";
+  const parsed = current.trim() ? JSON.parse(current) : {};
+  if (!isRecord(parsed)) throw new Error(`${CLAUDE_SETTINGS_PATH} must contain a JSON object.`);
+  const next = `${formatJsonArtifact(upsertClaudeHookSettings(parsed))}\n`;
+  if (exists && current === next) {
+    return change(CLAUDE_SETTINGS_PATH, "unchanged", "Claude hook settings are current");
+  }
+  if (!check) {
+    await ensureDir(path.dirname(settingsPath));
+    await writeText(settingsPath, next);
+  }
+  return change(
+    CLAUDE_SETTINGS_PATH,
+    check ? (exists ? "would_update" : "would_create") : exists ? "updated" : "created",
+    "Claude hook settings are required",
+  );
+}
+
 async function ensureGitignore(
   config: ResolvedLockpickConfig,
   check: boolean,
@@ -318,4 +429,47 @@ function appendLine(current: string, line: string): string {
 
 function change(pathLabel: string, action: InitAction, message: string): InitChange {
   return { path: pathLabel, action, message };
+}
+
+function upsertClaudeHookSettings(settings: Record<string, unknown>): Record<string, unknown> {
+  const hooks = isRecord(settings.hooks) ? { ...settings.hooks } : {};
+  const preToolUse = Array.isArray(hooks.PreToolUse) ? [...hooks.PreToolUse] : [];
+  const bashGroupIndex = preToolUse.findIndex(
+    (group) => isRecord(group) && group.matcher === "Bash",
+  );
+  const existingGroup: Record<string, unknown> = isRecord(preToolUse[bashGroupIndex])
+    ? { ...(preToolUse[bashGroupIndex] as Record<string, unknown>) }
+    : { matcher: "Bash" };
+  const hookHandlers = Array.isArray(existingGroup.hooks) ? [...existingGroup.hooks] : [];
+  if (!hookHandlers.some(isClaudeLockpickOwnerHookHandler)) {
+    hookHandlers.push({
+      type: "command",
+      command: CLAUDE_HOOK_COMMAND,
+      args: [CLAUDE_HOOK_SCRIPT_REFERENCE],
+    });
+  }
+  existingGroup.matcher = "Bash";
+  existingGroup.hooks = hookHandlers;
+  if (bashGroupIndex === -1) {
+    preToolUse.push(existingGroup);
+  } else {
+    preToolUse[bashGroupIndex] = existingGroup;
+  }
+  hooks.PreToolUse = preToolUse;
+  return { ...settings, hooks };
+}
+
+function isClaudeLockpickOwnerHookHandler(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.type === "command" &&
+    value.command === CLAUDE_HOOK_COMMAND &&
+    Array.isArray(value.args) &&
+    value.args.length === 1 &&
+    value.args[0] === CLAUDE_HOOK_SCRIPT_REFERENCE
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
