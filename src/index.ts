@@ -23,11 +23,14 @@ export { resourcesConflict } from "./locks/matching";
 export { FileLockRegistry } from "./locks/registry";
 export { normalizeLockResources } from "./locks/resources";
 export {
-  CODEX_OWNER_ENV_KEYS,
+  CLAUDE_CODE_SESSION_ENV_KEY,
+  CODEX_OWNER_ENV_KEY,
   CODEX_SUPERVISOR_ENV_KEYS,
   createUnknownSessionProbe,
   DEFAULT_OWNER_ENV_KEYS,
+  DEFAULT_OWNER_HARNESSES,
   DEFAULT_SUPERVISOR_ENV_KEYS,
+  detectHarnessSessionId,
   detectSessionId,
   identifyLockOwner,
   lockOwnerSessionId,

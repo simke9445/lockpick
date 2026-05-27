@@ -23,7 +23,7 @@ test("init creates support files in an empty repo", async () => {
     expect(gitignore).toContain(".lockpick/");
     expect(packageJson.scripts.lockpick).toBe("lockpick");
     await expect(readFile(path.join(workspace, "lockpick.config.ts"), "utf8")).resolves.toContain(
-      "lockRoot",
+      'harnesses: ["codex", "claude-code"]',
     );
   });
 });

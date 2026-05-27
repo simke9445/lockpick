@@ -38,6 +38,7 @@ export async function executeLockCommand(
     cwd: config.root,
     lockRoot: config.lockRoot,
     ownerEnvKeys: config.owner.envKeys,
+    ownerHarnesses: config.owner.harnesses,
     supervisorEnvKeys: config.owner.supervisorEnvKeys,
     fallbackOwnerPrefix: config.owner.fallbackPrefix,
     defaultTtlMs: config.defaults.ttlMs,
@@ -196,6 +197,9 @@ function compactLockJson(result: LockOperationResult): Record<string, unknown> {
         kind: "identified",
         exitCode: result.exitCode,
         session_id: result.owner ? lockOwnerSessionId(result.owner) : null,
+        source: result.owner ? lockOwnerSource(result.owner) : null,
+        harness: result.owner?.harness ?? null,
+        harness_scope: result.owner?.harnessScope ?? null,
       };
   }
 }
@@ -260,6 +264,8 @@ export function renderLockResult(
       return [
         `owner session: ${ownerSessionText(result.owner)}`,
         `source: ${result.owner ? (lockOwnerSource(result.owner) ?? "<unknown>") : "<unknown>"}`,
+        `harness: ${result.owner?.harness ?? "<none>"}`,
+        `harness scope: ${result.owner?.harnessScope ?? "<none>"}`,
         `hostname: ${result.owner?.hostname ?? "<unknown>"}`,
         `pid: ${result.owner?.pid ?? "<unknown>"}`,
       ].join("\n");

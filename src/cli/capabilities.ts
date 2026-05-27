@@ -1,6 +1,11 @@
 import packageJson from "../../package.json";
 import { DEFAULT_CONFIG_FILE, DEFAULT_LOCK_ROOT } from "../config";
-import { DEFAULT_OWNER_ENV_KEYS, DEFAULT_SUPERVISOR_ENV_KEYS } from "../locks/session";
+import {
+  CLAUDE_CODE_SESSION_ENV_KEY,
+  CODEX_OWNER_ENV_KEY,
+  DEFAULT_OWNER_ENV_KEYS,
+  DEFAULT_SUPERVISOR_ENV_KEYS,
+} from "../locks/session";
 import {
   DEFAULT_LOCK_TTL_MS,
   DEFAULT_UNKNOWN_LIVENESS_GRACE_MS,
@@ -294,6 +299,14 @@ export function lockpickCapabilities(): LockpickCapabilities {
         name,
         purpose: "Optional supervisor session id recorded in lock owner metadata.",
       })),
+      {
+        name: CODEX_OWNER_ENV_KEY,
+        purpose: "Codex agent thread id used for automatic owner session detection.",
+      },
+      {
+        name: CLAUDE_CODE_SESSION_ENV_KEY,
+        purpose: "Claude Code session id used as automatic session-scope owner fallback.",
+      },
     ],
     defaults: {
       config_file: DEFAULT_CONFIG_FILE,

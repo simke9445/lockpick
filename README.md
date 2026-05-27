@@ -291,14 +291,14 @@ export default {
     // Checked after explicit --owner-session.
     envKeys: ["LOCKPICK_OWNER_SESSION", "LOCKPICK_SESSION_ID"],
 
+    // Runtime harnesses checked after explicit/env owner ids.
+    harnesses: ["codex", "claude-code"],
+
     // Recorded as optional supervising session metadata.
     supervisorEnvKeys: ["LOCKPICK_SUPERVISOR_SESSION_ID"],
 
     // Generic fallback owner prefix when no explicit or env owner is available.
     fallbackPrefix: "lockpick",
-
-    // Optional. Adds Codex-specific environment keys to the configured env lists.
-    // includeCodexEnv: true,
   },
 
   liveness: {
@@ -445,8 +445,10 @@ editing, refresh while working, lock `@git/index` before staging, and release pr
 
 ### How should agents identify themselves?
 
-Set `LOCKPICK_OWNER_SESSION` to a stable value for the session. Without that, Lockpick falls back to
-a process-scoped id, which is fine for one command but awkward across multiple shell invocations.
+Lockpick first checks `LOCKPICK_OWNER_SESSION` and `LOCKPICK_SESSION_ID`, then supported harness
+environment such as `CODEX_THREAD_ID` and `CLAUDE_CODE_SESSION_ID`. Without one of those, Lockpick
+falls back to a process-scoped id, which is fine for one command but awkward across multiple shell
+invocations.
 
 ### What happens in CI?
 

@@ -6,6 +6,8 @@ export const REGISTRY_MUTEX_STALE_MS = 30_000;
 export const GIT_INDEX_RESOURCE = "@git/index";
 
 export type LockResourceKind = "path" | "glob" | "git";
+export type LockOwnerHarness = "codex" | "claude-code" | "lockpick";
+export type LockOwnerHarnessScope = "agent" | "main" | "session" | "fallback";
 
 export interface LockResource {
   kind: LockResourceKind;
@@ -19,6 +21,11 @@ export interface LockOwner {
   pid: number;
   cwd: string;
   source: string;
+  harness?: LockOwnerHarness;
+  harnessScope?: LockOwnerHarnessScope;
+  rawSessionId?: string;
+  agentId?: string;
+  agentType?: string;
 }
 
 export type GenericLockOwner = LockOwner;

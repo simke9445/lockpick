@@ -11,6 +11,7 @@ import {
   type IdentifyOwnerOptions,
   identifyLockOwner,
   lockOwnerSessionId,
+  type OwnerHarness,
   type SessionLivenessProbe,
 } from "./session";
 import type {
@@ -36,6 +37,7 @@ export interface FileLockRegistryOptions {
   now?: () => Date;
   env?: NodeJS.ProcessEnv;
   ownerEnvKeys?: readonly string[];
+  ownerHarnesses?: readonly OwnerHarness[];
   supervisorEnvKeys?: readonly string[];
   fallbackOwnerPrefix?: string;
   defaultTtlMs?: number;
@@ -71,6 +73,7 @@ export class FileLockRegistry {
   private readonly now: () => Date;
   private readonly env: NodeJS.ProcessEnv;
   private readonly ownerEnvKeys: readonly string[] | undefined;
+  private readonly ownerHarnesses: readonly OwnerHarness[] | undefined;
   private readonly supervisorEnvKeys: readonly string[] | undefined;
   private readonly fallbackOwnerPrefix: string;
   private readonly defaultTtlMs: number;
@@ -89,6 +92,7 @@ export class FileLockRegistry {
     this.now = options.now ?? (() => new Date());
     this.env = options.env ?? process.env;
     this.ownerEnvKeys = options.ownerEnvKeys;
+    this.ownerHarnesses = options.ownerHarnesses;
     this.supervisorEnvKeys = options.supervisorEnvKeys;
     this.fallbackOwnerPrefix = options.fallbackOwnerPrefix ?? "lockpick";
     this.defaultTtlMs = options.defaultTtlMs ?? DEFAULT_LOCK_TTL_MS;
@@ -290,6 +294,7 @@ export class FileLockRegistry {
       fallbackPrefix: this.fallbackOwnerPrefix,
     };
     if (this.ownerEnvKeys) options.envKeys = this.ownerEnvKeys;
+    if (this.ownerHarnesses) options.harnesses = this.ownerHarnesses;
     if (this.supervisorEnvKeys) options.supervisorEnvKeys = this.supervisorEnvKeys;
     return identifyLockOwner(options);
   }

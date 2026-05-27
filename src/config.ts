@@ -3,10 +3,11 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { pathExists } from "./io";
 import {
-  CODEX_OWNER_ENV_KEYS,
   CODEX_SUPERVISOR_ENV_KEYS,
   DEFAULT_OWNER_ENV_KEYS,
+  DEFAULT_OWNER_HARNESSES,
   DEFAULT_SUPERVISOR_ENV_KEYS,
+  type OwnerHarness,
 } from "./locks/session";
 import {
   DEFAULT_LOCK_TTL_MS,
@@ -29,7 +30,7 @@ export interface LockpickCommandConfig {
 export interface LockpickOwnerConfig {
   envKeys?: string[];
   supervisorEnvKeys?: string[];
-  includeCodexEnv?: boolean;
+  harnesses?: OwnerHarness[];
   fallbackPrefix?: string;
 }
 
@@ -69,6 +70,7 @@ export interface ResolvedCommandConfig {
 
 export interface ResolvedOwnerConfig {
   envKeys: string[];
+  harnesses: OwnerHarness[];
   supervisorEnvKeys: string[];
   fallbackPrefix: string;
 }
@@ -188,13 +190,12 @@ async function loadConfigFile(
 
 function resolveOwnerConfig(config: LockpickOwnerConfig | undefined): ResolvedOwnerConfig {
   const envKeys = [...(config?.envKeys ?? DEFAULT_OWNER_ENV_KEYS)];
+  const harnesses = [...(config?.harnesses ?? DEFAULT_OWNER_HARNESSES)];
   const supervisorEnvKeys = [...(config?.supervisorEnvKeys ?? DEFAULT_SUPERVISOR_ENV_KEYS)];
-  if (config?.includeCodexEnv) {
-    envKeys.push(...CODEX_OWNER_ENV_KEYS);
-    supervisorEnvKeys.push(...CODEX_SUPERVISOR_ENV_KEYS);
-  }
+  if (harnesses.includes("codex")) supervisorEnvKeys.push(...CODEX_SUPERVISOR_ENV_KEYS);
   return {
     envKeys: dedupeStrings(envKeys),
+    harnesses: dedupeHarnesses(harnesses),
     supervisorEnvKeys: dedupeStrings(supervisorEnvKeys),
     fallbackPrefix: config?.fallbackPrefix?.trim() || "lockpick",
   };
@@ -240,6 +241,10 @@ function shellQuote(value: string): string {
 
 function dedupeStrings(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function dedupeHarnesses(values: readonly OwnerHarness[]): OwnerHarness[] {
+  return [...new Set(values)];
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

@@ -202,11 +202,20 @@ test("@git/index conflicts only with another git lock", async () => {
 
 test("owner detection supports explicit, configured env, and fallback session ids", async () => {
   await withWorkspace(async (workspace) => {
-    const explicit = new FileLockRegistry({ cwd: workspace }).identify("explicit-session");
+    const harnessEnv = {
+      CODEX_THREAD_ID: "codex-thread",
+      CLAUDE_CODE_SESSION_ID: "claude-session",
+    } as NodeJS.ProcessEnv;
+    const explicit = new FileLockRegistry({ cwd: workspace, env: harnessEnv }).identify(
+      "explicit-session",
+    );
     expect(explicit.owner ? lockOwnerSessionId(explicit.owner) : null).toBe("explicit-session");
     expect(explicit.owner ? lockOwnerSource(explicit.owner) : null).toBe("explicit");
 
-    const env = { CUSTOM_LOCK_OWNER: "env-session" } as NodeJS.ProcessEnv;
+    const env = {
+      CUSTOM_LOCK_OWNER: "env-session",
+      CODEX_THREAD_ID: "codex-thread",
+    } as NodeJS.ProcessEnv;
     const configured = new FileLockRegistry({
       cwd: workspace,
       env,
@@ -217,11 +226,54 @@ test("owner detection supports explicit, configured env, and fallback session id
       "env:CUSTOM_LOCK_OWNER",
     );
 
+    const codex = new FileLockRegistry({
+      cwd: workspace,
+      env: { CODEX_THREAD_ID: "codex-thread" },
+    }).identify();
+    expect(codex.owner ? lockOwnerSessionId(codex.owner) : null).toBe("codex:codex-thread");
+    expect(codex.owner ? lockOwnerSource(codex.owner) : null).toBe(
+      "harness:codex:CODEX_THREAD_ID",
+    );
+    expect(codex.owner?.harness).toBe("codex");
+    expect(codex.owner?.harnessScope).toBe("agent");
+    expect(codex.owner?.rawSessionId).toBe("codex-thread");
+
+    const claude = new FileLockRegistry({
+      cwd: workspace,
+      env: { CLAUDE_CODE_SESSION_ID: "claude-session" },
+    }).identify();
+    expect(claude.owner ? lockOwnerSessionId(claude.owner) : null).toBe(
+      "claude-code:claude-session",
+    );
+    expect(claude.owner ? lockOwnerSource(claude.owner) : null).toBe(
+      "harness:claude-code:CLAUDE_CODE_SESSION_ID",
+    );
+    expect(claude.owner?.harness).toBe("claude-code");
+    expect(claude.owner?.harnessScope).toBe("session");
+
+    const hookMain = new FileLockRegistry({
+      cwd: workspace,
+      env: { LOCKPICK_OWNER_SESSION: "claude-code:claude-session:main" },
+    }).identify();
+    expect(hookMain.owner?.harness).toBe("claude-code");
+    expect(hookMain.owner?.harnessScope).toBe("main");
+    expect(hookMain.owner?.rawSessionId).toBe("claude-session");
+
+    const hookAgent = new FileLockRegistry({
+      cwd: workspace,
+      env: { LOCKPICK_OWNER_SESSION: "claude-code:claude-session:agent:agent-1" },
+    }).identify();
+    expect(hookAgent.owner?.harness).toBe("claude-code");
+    expect(hookAgent.owner?.harnessScope).toBe("agent");
+    expect(hookAgent.owner?.agentId).toBe("agent-1");
+
     const fallback = new FileLockRegistry({ cwd: workspace, env: {} }).identify();
     expect(
       fallback.owner ? lockOwnerSessionId(fallback.owner).startsWith("lockpick:") : false,
     ).toBe(true);
     expect(fallback.owner ? lockOwnerSource(fallback.owner) : null).toBe("fallback");
+    expect(fallback.owner?.harness).toBe("lockpick");
+    expect(fallback.owner?.harnessScope).toBe("fallback");
   });
 });
 

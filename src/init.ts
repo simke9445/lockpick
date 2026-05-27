@@ -182,6 +182,7 @@ export default {
   },
   owner: {
     envKeys: ["LOCKPICK_OWNER_SESSION", "LOCKPICK_SESSION_ID"],
+    harnesses: ["codex", "claude-code"],
     fallbackPrefix: "lockpick",
   },
   liveness: {
