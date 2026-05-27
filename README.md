@@ -2,6 +2,10 @@
 
 Local advisory locks for multi-agent coding in one Git worktree.
 
+<p align="center">
+  <img src="./assets/lockpick-heading.png" alt="Lockpick" width="960">
+</p>
+
 ![Version 0.1.1](https://img.shields.io/badge/version-0.1.1-blue)
 ![Runtime Bun >= 1.2](https://img.shields.io/badge/runtime-Bun%20%3E%3D%201.2-black)
 ![Language TypeScript](https://img.shields.io/badge/language-TypeScript-3178c6)

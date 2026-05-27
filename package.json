@@ -29,6 +29,7 @@
     "lockpick": "bin/lockpick.ts"
   },
   "files": [
+    "assets/",
     "bin/",
     "src/",
     "README.md",
