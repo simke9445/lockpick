@@ -4,6 +4,7 @@ import { lockExitCode, runLockCommand } from "./commands/lock";
 import { renderDoctorText, runDoctor } from "./doctor";
 import { helpText, parseCliArgs } from "./program";
 import { renderRobotDocsGuide } from "./robot-docs";
+import { maybePrintUpdateNotice } from "./update-notice";
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   try {
@@ -49,6 +50,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       console.error(`lockpick error: ${renderCliErrorMessage(message, suggestion)}`);
     }
     process.exitCode = exitCode;
+  } finally {
+    await maybePrintUpdateNotice({ argv });
   }
 }
 

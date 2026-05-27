@@ -465,6 +465,20 @@ They normally should not. Lockpick checks supported harness identity first. Clau
 unsupported harness integrations or recovery from outside the original harness agent. Without any
 stable source, Lockpick falls back to a process-scoped id.
 
+### How do users know when to update?
+
+Interactive Lockpick commands check npm at most once per day and print a stderr notice when a
+newer version is available:
+
+```text
+New Lockpick version available: 0.1.1 -> 0.1.2
+Update with: bun update -g --latest @simke9445/lockpick
+npm users: npm install -g @simke9445/lockpick@latest
+```
+
+The update check is skipped for `--json`, `--id-only`, CI, and non-TTY runs so automation output
+stays parseable. Set `LOCKPICK_DISABLE_UPDATE_CHECK=1` to disable it completely.
+
 ### What happens in CI?
 
 Use `lockpick status --json`, `lockpick capabilities --json`, and `lockpick doctor --json` for
